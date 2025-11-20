@@ -11,15 +11,15 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application source code and data into the container
-COPY ./src ./src
-COPY ./data ./data
+COPY api.py .
+COPY graph_builder.py .
+COPY utils.py .
+COPY agent_state.py .
+COPY llm_fantasy_data.db .
+COPY data/ ./data/
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Define environment variable for the port
-ENV PORT 8000
-
-# Run main.py when the container launches
-# Use 0.0.0.0 to allow traffic from outside the container
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run api.py when the container launches
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
