@@ -1,0 +1,31 @@
+conversation_id,turn_id,question,ground_truth_answer
+convo_01,1,Did Jack win any championships?,"Yes, 1."
+convo_01,2,What year was his most recent one?,2016
+convo_01,3,Who did he play in that championship game and what was the score?,He played Nick and the final score was 192.7-133.9.
+convo_02,1,What is Jake's all-time regular season record against Josh?,Jake is 8-10-0 against Josh in the regular season.
+convo_02,2,How many times did they meet in the playoffs?,Once in 2018.
+convo_02,3,"Who won their most recent matchup, regular season or playoffs?",Jake won their most recent matchup in week 6 of the 2024 season.
+convo_03,1,What's Mark's best regular season record?,His best regular season record is 9-4 in 2021. 
+convo_03,2,What year was that?,2021
+convo_03,3,"Did he make the playoffs that year? If so, how far did he get?",Yes he made the playoffs and won the championship that year.
+convo_04,1,What's the most points ever scored in a single regular season by one team?,The most points scored in a single regular season is 1447.76 points.
+convo_04,2,Who was it and what year?,It was Zach in 2022.
+convo_04,3,What was their final record that season? Did they win the 'ship?,His final regular season record that year was 10-3. He did not win the championship and was the runner-up. 
+convo_05,1,Compare the all-time playoff wins for Nick and Will.,Nick has more all-time playoff wins with 4 compared to Will's 2
+convo_05,2,Who has more championships between the two?,Nick has more championships with 1.
+convo_05,3,What about total regular season points scored all-time?,Nick has more total regular season points with 19144 compared to Will's 19368.
+convo_06,1,Who was the runner-up in 2021?,The runner-up in 2021 was Sean.
+convo_06,2,What was his team name that year?,His team name was 'Jupiter Clutch'.
+convo_06,3,What was his regular season record?,His regular season record that year was 8-5.
+convo_07,1,How many championships does Lac have?,Lac has 0 championships.
+convo_07,2,What about Fitz?,Fitz also has 0 championships.
+convo_07,3,Compare their all-time head-to-head record.,They have never faced each other head to head.
+convo_08,1,"Show me all the league members (Jack, Josh, Jake, Mark, Sean, Nick, Will, Zach, Lac, Chris, Dylan, Dan, and Fitz) who have never won a championship.","The league members who have never won a championship are Will, Dylan, Lac, Dan, and Fitz."
+convo_08,2,"Of that group, who has the most playoff appearances?",Will and Dylan are tied with the most playoff appearances at 4 each.
+convo_08,3,What's the best-ever finish for that person?,The best ever finish for Will is 2nd. The best ever finish for Dylan is 3rd.
+convo_09,1,What was Dylan's team name in 2020?,Dylans team name in 2020 was 'Dak and the Ankle Breakers'.
+convo_09,2,What about in 2021?,In 2021 it was 'We Wasted JT'
+convo_09,3,Has he ever used the same name twice?,Yes in 2016 and 2017 his team name was 'Diddlin' Ain't Easy'.
+convo_10,1,Who had more regular season wins in 2023: Dylan or Chris?,Dylan with 9.
+convo_10,2,What about total points scored?,Dylan with 1386.5.
+convo_10,3,Did either of them make the playoffs that year?,Yes Dylan made the playoffs that year.
