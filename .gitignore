@@ -25,4 +25,3 @@ secrets.toml
 
 # Evaluation results
 evals/results/
-backend/eval_results/
