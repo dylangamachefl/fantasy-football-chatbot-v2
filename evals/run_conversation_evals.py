@@ -14,8 +14,10 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 
 # --- IMPORT WORKFLOW ---
-from graph_builder import workflow
-from agent_state import AgentState
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
+from src.agent.workflow import workflow
+from src.agent.state import AgentState
 
 # --- SETUP ---
 logging.basicConfig(level=logging.WARNING)

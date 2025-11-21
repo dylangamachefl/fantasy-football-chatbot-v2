@@ -4,7 +4,6 @@ import os
 import csv
 import json
 import logging
-import streamlit as st
 from typing import List
 from pydantic import BaseModel, Field
 
@@ -150,13 +149,9 @@ _llm = None
 def get_llm():
     global _llm
     if _llm is None:
-        # Try environment variable first, then fallback to streamlit secrets
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
-            try:
-                api_key = st.secrets["GOOGLE_API_KEY"]
-            except Exception:
-                raise ValueError("GOOGLE_API_KEY not found in environment variables or st.secrets")
+            raise ValueError("GOOGLE_API_KEY not found in environment variables")
 
         _llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite",

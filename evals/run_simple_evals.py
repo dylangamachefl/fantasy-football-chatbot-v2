@@ -17,8 +17,10 @@ logger.setLevel(logging.INFO)
 load_dotenv()
 
 # --- AGENT V2.0 IMPORTS (NEW) ---
-from graph_builder import app
-from agent_state import AgentState
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
+from src.agent.workflow import app
+from src.agent.state import AgentState
 
 
 class RateLimitingCallbackHandler(BaseCallbackHandler):
