@@ -1,6 +1,6 @@
-# --- START OF FILE agent_state.py ---
+# --- START OF FILE state.py ---
 
-from typing import List, Optional, TypedDict, Annotated, Any
+from typing import List, Optional, TypedDict, Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.graph import add_messages
 
@@ -27,9 +27,3 @@ class AgentState(TypedDict):
 
     # A simple counter to prevent infinite loops
     iteration_count: int
-    
-    # Raw SQL query result for visualization (new)
-    sql_result: Optional[Any]
-    
-    # SQL query that was executed (new)
-    sql_query: Optional[str]

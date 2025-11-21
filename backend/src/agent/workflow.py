@@ -1,4 +1,4 @@
-# --- START OF FILE graph_builder.py ---
+# --- START OF FILE workflow.py ---
 
 import logging
 import re
@@ -6,11 +6,10 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 # --- Import our agent state ---
-from agent_state import AgentState
+from .state import AgentState
 
-# --- Import helper functions and models from utils.py ---
-# Make sure your utils.py exports 'build_sql_agent_graph' instead of the old 'create_specialized_agent'
-from utils import (
+# --- Import helper functions and models from sql_agent.py ---
+from .sql_agent import (
     get_db,
     get_llm,
     get_structured_llm,
@@ -260,10 +259,6 @@ def node_sql_agent(state: AgentState) -> dict:
 
     # 2. Get the New Messages
     new_messages = result["messages"][len(state["messages"]) :]
-    
-    # Initialize variables to capture SQL data
-    sql_query = None
-    sql_result = None
 
     # 3. LOGGING (Keep your trace logic)
     print("\n" + "=" * 40)
@@ -297,7 +292,6 @@ def node_sql_agent(state: AgentState) -> dict:
                     # Manually run the query
                     db = get_db()
                     tool_result = db.run(sql_query)
-                    sql_result = tool_result  # Capture for visualization
 
                     # Inject the result as a ToolMessage so the Responder sees it
                     # We make up a dummy tool_call_id
@@ -321,28 +315,10 @@ def node_sql_agent(state: AgentState) -> dict:
                 # Standard cleanup: If no SQL found and no tool call, strip the message
                 # (unless you want to keep the agent's apology/confusion)
                 new_messages.pop()
-        
-        # Also check for ToolMessages to capture SQL results from normal execution
-        for msg in new_messages:
-            if isinstance(msg, ToolMessage) and msg.name == "sql_db_query":
-                sql_result = msg.content
-                # Try to extract SQL query from previous AI message
-                for prev_msg in reversed(new_messages):
-                    if isinstance(prev_msg, AIMessage) and prev_msg.tool_calls:
-                        for tool_call in prev_msg.tool_calls:
-                            if tool_call.get("name") == "sql_db_query":
-                                sql_query = tool_call.get("args", {}).get("query")
-                                break
-                        break
 
     # -------------------------------------------------------
 
-    return {
-        "messages": new_messages,
-        "sql_result": sql_result,
-        "sql_query": sql_query
-    }
-
+    return {"messages": new_messages}
 
 
 def node_responder(state: AgentState) -> dict:
