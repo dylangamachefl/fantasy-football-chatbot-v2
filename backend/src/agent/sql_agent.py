@@ -198,19 +198,27 @@ def get_db():
     return _db
 
 
+_table_descriptions_cache = None
+
 def load_table_descriptions(filepath: str = "data/table_dictionary.csv") -> str:
+    global _table_descriptions_cache
+    if _table_descriptions_cache is not None:
+        return _table_descriptions_cache
+
     resolved_path = get_data_path(filepath)
     try:
         with open(resolved_path, mode="r", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
-            return "\n".join(
+            _table_descriptions_cache = "\n".join(
                 [
                     f"Table: {row['table_name']}, Description: {row['table_description']}"
                     for row in reader
                 ]
             )
     except Exception:
-        return ""
+        _table_descriptions_cache = ""
+
+    return _table_descriptions_cache
 
 
 def get_detailed_schema_info(

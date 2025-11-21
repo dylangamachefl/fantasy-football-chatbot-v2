@@ -22,8 +22,7 @@ from .sql_agent import (
 
 # --- Setup ---
 logger = logging.getLogger(__name__)
-structured_llm = get_structured_llm()
-table_descriptions = load_table_descriptions()
+
 
 # =========================================================================
 # --- Graph Nodes ---
@@ -134,6 +133,11 @@ def node_table_router(state: AgentState) -> dict:
     Uses Python to pre-validate Owner names to prevent LLM hallucinations.
     """
     logger.info("---NODE: TABLE ROUTER---")
+
+    # Initialize resources lazily to avoid import-time errors
+    structured_llm = get_structured_llm()
+    table_descriptions = load_table_descriptions()
+
     user_query = state["input"]
 
     core_tables = {
