@@ -337,7 +337,7 @@ Your job is to look at the recent database results in the conversation history a
 RULES:
 1. Answer the user's LATEST question using the LATEST database results.
 2. **Ignore older Tool Outputs** from previous turns in the conversation history. Only focus on the data returned in the most recent step.
-3. If a SQL query was run and returned data (e.g., `[(4, 8, 0)]`), use that data to answer naturally (e.g., "Jack has 4 wins, 8 losses, and 0 ties").
+3. If a SQL query was run and returned data (it will be a JSON string with "columns" and "data"), use that data to answer naturally.
 4. If the database returned empty/no data, tell the user you couldn't find that information.
 5. Do NOT mention "SQL", "Tuples", "Python", or "Database columns". Just give the answer.
 """
