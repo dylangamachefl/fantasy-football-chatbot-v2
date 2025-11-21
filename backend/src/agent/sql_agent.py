@@ -120,13 +120,14 @@ def get_data_path(filename: str) -> str:
     """
     Helper to resolve data file paths whether running from root or backend/
     """
-    # Check current directory (root case)
+    # Check current directory (e.g. running from backend/ where data/ is a subdir)
     if os.path.exists(filename):
         return filename
 
-    # Check if running from backend/ (parent directory has data)
-    if os.path.exists(os.path.join("..", filename)):
-        return os.path.join("..", filename)
+    # Check if running from root (need to prepend backend/)
+    backend_path = os.path.join("backend", filename)
+    if os.path.exists(backend_path):
+        return backend_path
 
     # Return original and let caller handle not found
     return filename
