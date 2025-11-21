@@ -113,87 +113,27 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Call the Streaming API
+    # 2. Call the API
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        data_placeholder = st.empty()  # For SQL data visualization
-        full_response = ""
-        sql_data = None
         
         try:
-            # Make streaming HTTP request to the FastAPI backend
+            # Make HTTP request to the FastAPI backend
             with httpx.Client(timeout=60.0) as client:
-                with client.stream(
-                    "POST",
-                    f"{API_BASE_URL}/chat/stream",
+                response = client.post(
+                    f"{API_BASE_URL}/chat",
                     json={
                         "query": prompt,
                         "thread_id": st.session_state.thread_id
                     }
-                ) as response:
-                    response.raise_for_status()
-                    
-                    # Process Server-Sent Events
-                    for line in response.iter_lines():
-                        if line.startswith("data: "):
-                            data_str = line[6:]  # Remove "data: " prefix
-                            try:
-                                data = json.loads(data_str)
-                                event_type = data.get("type")
-                                
-                                if event_type == "thread_id":
-                                    # Update thread_id
-                                    st.session_state.thread_id = data["thread_id"]
-                                    if st.session_state.show_debug:
-                                        st.caption(f"🔗 Thread ID: {data['thread_id']}")
-                                
-                                elif event_type == "token":
-                                    # Accumulate streaming tokens
-                                    full_response += data["content"]
-                                    message_placeholder.markdown(full_response + "▌")
-                                
-                                elif event_type == "content":
-                                    # Full content (fallback if no streaming)
-                                    full_response = data["content"]
-                                    message_placeholder.markdown(full_response)
-                                
-                                elif event_type == "sql_data":
-                                    # SQL data for visualization
-                                    sql_data = data
-                                    if st.session_state.show_debug:
-                                        st.caption(f"📊 SQL Query: `{data.get('query', 'N/A')}`")
-                                
-                                elif event_type == "done":
-                                    # Remove cursor and finalize
-                                    message_placeholder.markdown(full_response)
-                                    
-                                    # Display SQL data if available
-                                    if sql_data:
-                                        with data_placeholder.container():
-                                            st.markdown("---")
-                                            st.markdown("**📊 Data:**")
-                                            
-                                            # Convert to DataFrame for better display
-                                            import pandas as pd
-                                            data_rows = sql_data.get("data", [])
-                                            
-                                            if data_rows and isinstance(data_rows, list):
-                                                # Create DataFrame
-                                                if isinstance(data_rows[0], (list, tuple)):
-                                                    df = pd.DataFrame(data_rows)
-                                                    st.dataframe(df, use_container_width=True)
-                                                else:
-                                                    # Single column result
-                                                    df = pd.DataFrame(data_rows, columns=["Value"])
-                                                    st.dataframe(df, use_container_width=True)
-                                
-                                elif event_type == "error":
-                                    error_msg = f"⚠️ Error: {data['error']}"
-                                    message_placeholder.error(error_msg)
-                                    full_response = error_msg
-                                    
-                            except json.JSONDecodeError:
-                                continue
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                full_response = data["answer"]
+                st.session_state.thread_id = data["thread_id"]
+
+                message_placeholder.markdown(full_response)
             
             # Save to History
             st.session_state.messages.append(

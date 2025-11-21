@@ -103,9 +103,25 @@ class SafeSQLQueryTool(BaseTool):
 # =========================================================================
 
 
+def get_data_path(filename: str) -> str:
+    """
+    Helper to resolve data file paths whether running from root or backend/
+    """
+    # Check current directory (root case)
+    if os.path.exists(filename):
+        return filename
+
+    # Check if running from backend/ (parent directory has data)
+    if os.path.exists(os.path.join("..", filename)):
+        return os.path.join("..", filename)
+
+    # Return original and let caller handle not found
+    return filename
+
 def get_valid_table_names(filepath: str = "data/table_dictionary.csv") -> List[str]:
+    resolved_path = get_data_path(filepath)
     try:
-        with open(filepath, mode="r", encoding="utf-8") as csvfile:
+        with open(resolved_path, mode="r", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             return [row["table_name"] for row in reader]
     except FileNotFoundError:
@@ -120,10 +136,18 @@ _llm = None
 def get_llm():
     global _llm
     if _llm is None:
+        # Try environment variable first, then fallback to streamlit secrets
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            try:
+                api_key = st.secrets["GOOGLE_API_KEY"]
+            except Exception:
+                raise ValueError("GOOGLE_API_KEY not found in environment variables or st.secrets")
+
         _llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite",
             temperature=0,
-            google_api_key=st.secrets["GOOGLE_API_KEY"],
+            google_api_key=api_key,
         )
     return _llm
 
@@ -144,7 +168,7 @@ _db = None
 def get_db():
     global _db
     if _db is None:
-        db_path = "data/llm_fantasy_data.db"
+        db_path = get_data_path("data/llm_fantasy_data.db")
         if not os.path.exists(db_path):
             raise FileNotFoundError(f"Database file '{db_path}' not found.")
 
@@ -166,8 +190,9 @@ def get_db():
 
 
 def load_table_descriptions(filepath: str = "data/table_dictionary.csv") -> str:
+    resolved_path = get_data_path(filepath)
     try:
-        with open(filepath, mode="r", encoding="utf-8") as csvfile:
+        with open(resolved_path, mode="r", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile)
             return "\n".join(
                 [
@@ -193,8 +218,9 @@ def get_detailed_schema_info(
 
     # 1. Load Table Descriptions (High Level context)
     table_descriptions = {}
+    resolved_table_dict = get_data_path(table_dict_path)
     try:
-        with open(table_dict_path, mode="r", encoding="utf-8") as f:
+        with open(resolved_table_dict, mode="r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if row["table_name"].strip().lower() in normalized_target_tables:
@@ -204,8 +230,9 @@ def get_detailed_schema_info(
 
     # 2. Load Column Descriptions (Specific details)
     table_columns = {}
+    resolved_column_dict = get_data_path(column_dict_path)
     try:
-        with open(column_dict_path, mode="r", encoding="utf-8") as f:
+        with open(resolved_column_dict, mode="r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 t_name = row["table_name"]
