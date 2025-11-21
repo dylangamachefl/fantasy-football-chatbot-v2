@@ -2,6 +2,7 @@
 
 import os
 import csv
+import json
 import logging
 import streamlit as st
 from typing import List
@@ -20,6 +21,7 @@ from langchain_core.messages import SystemMessage
 # --- SQL Parsing Library ---
 import sqlglot
 from sqlglot import exp
+from sqlalchemy import text
 
 # --- Setup ---
 logger = logging.getLogger(__name__)
@@ -86,13 +88,25 @@ class SafeSQLQueryTool(BaseTool):
                     return "Error: You are only allowed to execute SELECT queries."
 
             # 3. Execution: Trust the Database
-            # We rely on SQLite to throw an error if columns/tables don't exist.
-            # The Agent is capable of reading that error and fixing its own query.
-            return self.db.run(query)
+            # We execute via SQLAlchemy engine to get structured data (headers + rows)
+            # distinct from the default self.db.run() which returns a stringified tuple list.
+            # We use the engine directly to ensure we get the result proxy.
+            # Note: accessing _engine is necessary as SQLDatabase wrapper doesn't expose execution proxy directly
+            with self.db._engine.connect() as connection:
+                result = connection.execute(text(query))
+
+                # Extract columns and rows
+                columns = list(result.keys())
+                rows = [dict(row._mapping) for row in result.fetchall()]
+
+            # Return as JSON string so the Agent AND the Frontend can parse it
+            return json.dumps({"columns": columns, "data": rows}, default=str)
 
         except Exception as e:
             # Return the raw database error to the agent so it can self-correct
-            return f"Database Error: {str(e)}"
+            # We wrap it in a JSON structure so the frontend (which expects JSON for this tool)
+            # doesn't crash if it tries to parse this error as data.
+            return json.dumps({"error": f"Database Error: {str(e)}"})
 
     async def _arun(self, query: str) -> str:
         raise NotImplementedError("SafeSQLQueryTool does not support async execution.")
