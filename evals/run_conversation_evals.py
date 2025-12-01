@@ -19,6 +19,7 @@ from langfuse.langchain import CallbackHandler
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
 from src.agent.workflow import workflow
 from src.agent.state import AgentState
+from src.rate_limiter import throttle
 
 # --- SETUP ---
 logging.basicConfig(level=logging.WARNING)
@@ -29,19 +30,6 @@ load_dotenv()
 # --- COMPILE GRAPH WITH MEMORY ---
 memory = MemorySaver()
 app = workflow.compile(checkpointer=memory)
-
-
-class RateLimitingCallbackHandler(BaseCallbackHandler):
-    """Callback to add a delay between LLM calls to avoid rate limiting."""
-
-    def __init__(self, delay_seconds: int = 5):
-        self.delay_seconds = delay_seconds
-
-    def on_llm_start(self, serialized: dict, prompts: list[str], **kwargs) -> None:
-        time.sleep(self.delay_seconds)
-
-    def on_chat_model_start(self, serialized: dict, messages: list, **kwargs) -> None:
-        time.sleep(self.delay_seconds)
 
 
 def extract_last_turn_sql(messages: list) -> str:
@@ -59,11 +47,10 @@ def extract_last_turn_sql(messages: list) -> str:
 def run_conversation_turn(question: str, thread_id: str) -> AgentState:
     """Runs a single turn of the conversation using the persistent thread_id."""
     # FIX: Increased delay to 5s to stay safely under 15 RPM
-    rate_limit = RateLimitingCallbackHandler(delay_seconds=5)
     langfuse_handler = CallbackHandler()
     config = {
         "configurable": {"thread_id": thread_id},
-        "callbacks": [rate_limit, langfuse_handler],
+        "callbacks": [langfuse_handler],
     }
     input_payload = {"messages": [HumanMessage(content=question)], "input": question}
     try:
@@ -190,13 +177,15 @@ def main():
 
     logger.info("Grading results...")
 
-    # FIX: Initialize Rate Limit Handler for the Judge
-    # 5 seconds delay ensures we stay under the 15 RPM limit
-    judge_rate_limit = RateLimitingCallbackHandler(delay_seconds=5)
+    class JudgeRateLimiter(BaseCallbackHandler):
+        def on_llm_start(self, *args, **kwargs):
+            throttle()
+        def on_chat_model_start(self, *args, **kwargs):
+            throttle()
 
     # FIX: Attach the callback to the Judge LLM
     eval_llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite", temperature=0, callbacks=[judge_rate_limit]
+        model="gemini-2.5-flash-lite", temperature=0, callbacks=[JudgeRateLimiter()]
     )
     eval_chain = QAEvalChain.from_llm(llm=eval_llm)
 
