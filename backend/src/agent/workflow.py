@@ -10,7 +10,6 @@ from .state import AgentState
 
 # --- Import helper functions and models from sql_agent.py ---
 from .sql_agent import (
-    get_db,
     load_table_descriptions,
     get_detailed_schema_info,
     VALID_FANTASY_OWNERS,
@@ -242,8 +241,7 @@ def node_sql_agent(state: AgentState) -> dict:
     clean_sql = sql_query.replace("```sql", "").replace("```", "").strip()
 
     # Execute
-    db = get_db()
-    tool = SafeSQLQueryTool(db=db)
+    tool = SafeSQLQueryTool()
 
     # We want to mimic the tool calling behavior so the Responder sees a ToolMessage
     # Create AIMessage with the thought and the "tool call" visualization
