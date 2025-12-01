@@ -139,9 +139,18 @@ async def stream_generator(query: str, thread_id: str) -> AsyncGenerator[str, No
 
             # 3. Capture Final Answer Tokens (Streaming from Responder)
             elif kind == "on_chat_model_stream":
-                # Filter for the 'responder' node.
-                # Note: metadata keys might vary, usually 'langgraph_node' or 'tags'
-                if event.get("metadata", {}).get("langgraph_node") == "responder":
+                node = event.get("metadata", {}).get("langgraph_node")
+
+                # A) Helper Agent Thoughts (e.g. from "agent" node in SQL subgraph)
+                if node == "agent":
+                    chunk = event["data"]["chunk"]
+                    if chunk.content:
+                        # This stream includes THOUGHT and ACTION text.
+                        # We stream it to the frontend as "thought" events.
+                        yield f"event: thought\ndata: {json.dumps(chunk.content)}\n\n"
+
+                # B) Final Answer from Responder
+                elif node == "responder":
                     chunk = event["data"]["chunk"]
                     if chunk.content:
                         # Dump to ensure newlines are escaped

@@ -105,8 +105,12 @@ for idx, message in enumerate(st.session_state.messages):
                 pass # Ignore if data is malformed
 
         # 3. SQL Debug
-        if st.session_state.show_debug and "sql" in message:
-             st.code(message["sql"], language="sql")
+        if st.session_state.show_debug:
+            if "thought" in message:
+                with st.expander("🧠 Agent Thoughts", expanded=False):
+                    st.write(message["thought"])
+            if "sql" in message:
+                st.code(message["sql"], language="sql")
 
         # 4. Feedback
         if message["role"] == "assistant":
@@ -164,12 +168,19 @@ if prompt:
 
     # 2. Call the API (Streaming)
     with st.chat_message("assistant"):
+        # Placeholders for streaming debug info (Top)
+        thought_placeholder = st.empty()
+        sql_placeholder = st.empty()
+        data_placeholder = st.empty()
+
+        # Placeholder for Final Answer (Bottom)
         message_placeholder = st.empty()
         full_response = ""
         
         # Temporary storage for this turn
         current_sql = None
         current_data = None
+        current_thought = ""
 
         try:
             # Make HTTP request to the FastAPI backend with streaming
@@ -210,23 +221,32 @@ if prompt:
                                     full_response += parsed
                                     message_placeholder.markdown(full_response + "▌")
 
+                                elif event_type == "thought":
+                                    current_thought += parsed
+                                    if st.session_state.show_debug:
+                                        with thought_placeholder.container():
+                                            with st.expander("🧠 Agent Thoughts", expanded=True):
+                                                st.write(current_thought)
+
                                 elif event_type == "sql":
                                     current_sql = parsed
                                     if st.session_state.show_debug:
-                                        with st.expander("🔌 SQL Query Executed", expanded=True):
-                                            st.code(current_sql, language="sql")
+                                        with sql_placeholder.container():
+                                            with st.expander("🔌 SQL Query Executed", expanded=True):
+                                                st.code(current_sql, language="sql")
 
                                 elif event_type == "data":
                                     # parsed is {"columns": [...], "data": [...]}
                                     current_data = parsed
-                                    with st.expander("📊 Data Result", expanded=True):
-                                        # Handle potential error strings being passed as data
-                                        if isinstance(parsed, dict) and "data" in parsed:
-                                            df = pd.DataFrame(parsed["data"])
-                                            st.dataframe(df)
-                                        else:
-                                            # Fallback if data is not in expected format
-                                            st.write(parsed)
+                                    with data_placeholder.container():
+                                        with st.expander("📊 Data Result", expanded=True):
+                                            # Handle potential error strings being passed as data
+                                            if isinstance(parsed, dict) and "data" in parsed:
+                                                df = pd.DataFrame(parsed["data"])
+                                                st.dataframe(df)
+                                            else:
+                                                # Fallback if data is not in expected format
+                                                st.write(parsed)
 
                                 elif event_type == "error":
                                     st.error(f"Backend Error: {parsed}")
@@ -247,6 +267,8 @@ if prompt:
                 msg_obj["sql"] = current_sql
             if current_data:
                 msg_obj["data"] = current_data
+            if current_thought:
+                msg_obj["thought"] = current_thought
 
             st.session_state.messages.append(msg_obj)
 
