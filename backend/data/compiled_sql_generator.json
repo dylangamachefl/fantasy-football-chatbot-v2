@@ -1,0 +1,51 @@
+{
+  "prog.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "question": "How many points did Chris score in 2021?",
+        "db_schema": "==================================================\nDATABASE SCHEMA\n==================================================\n\n📄 TABLE: FantasyOwners_LLM\n   Description: The master list of all fantasy league managers (owners). Use this to find an owner's ID from their name and vice versa. \n   Columns:\n  - owner_id: The unique primary key for a fantasy owner. Use this ID to join from this table to others like FantasyTeams_LLM.\n  - owner_name: The display name of the fantasy owner. Use this for filtering when a user asks about a specific person (e.g., 'Dylan').\n  - total_wins: The owner's total number of wins across all regular seasons they have participated in.\n  - total_losses: The owner's total number of losses across all regular seasons they have participated in.\n  - total_ties: The owner's total number of ties across all regular seasons they have participated in.\n  - total_win_percentage: The owner's lifetime winning percentage for regular season games.\n  - total_points_for: The total number of fantasy points this owner's teams have scored across all regular seasons.\n  - total_points_against: The total number of fantasy points scored against this owner's teams across all regular seasons.\n  - points_for_per_game: The average number of points this owner's teams score per regular season game over their lifetime.\n  - points_against_per_game: The average number of points scored against this owner's teams per regular season game over their lifetime.\n  - total_player_acquisitions: The total number of players this owner has acquired across all seasons.\n  - average_final_standing: The owner's average final ranking (including playoffs) at the end of all seasons they participated in.\n  - championships_won: The total number of fantasy league championships this owner has won.\n  - average_regular_season_finish: The owner's average finishing position at the end of the regular season across all seasons.\n\n📄 TABLE: FantasySeasons_LLM\n   Description: Contains high-level metadata about each season (year). Use this to find the champion of a specific year or to get a season_id from a year.\n   Columns:\n  - season_id: The unique primary key for a fantasy season, representing the calendar year (e.g., 2022, 2023). Use this ID to join to other tables to filter data for a specific year.\n  - league_name: The name of the fantasy league for that particular season.\n  - team_count: The total number of teams that participated in the league during that season.\n  - playoff_team_count: The number of teams that qualified for the playoffs in that season.\n  - regular_season_matchup_count: The number of matchups each team played during the regular season.\n  - scoring_format: The scoring format used for the league in that season (e.g., 'PPR', 'Standard').\n  - champion_owner_id: The owner_id of the champion. JOIN to FantasyOwners_LLM on this ID to get the champion's name.\n  - champion_team_id: The fantasy_team_id of the champion. JOIN to FantasyTeams_LLM on this ID to get the champion's team name.\n\n==================================================",
+        "sql_query": "SELECT T2.owner_name, T1.points_for FROM FantasySeasons_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T2.owner_name = 'Chris' AND T1.season_id = 2021"
+      },
+      {
+        "question": "Who won the championship in 2020?",
+        "db_schema": "==================================================\nDATABASE SCHEMA\n==================================================\n\n📄 TABLE: FantasyOwners_LLM\n   Description: The master list of all fantasy league managers (owners). Use this to find an owner's ID from their name and vice versa. \n   Columns:\n  - owner_id: The unique primary key for a fantasy owner. Use this ID to join from this table to others like FantasyTeams_LLM.\n  - owner_name: The display name of the fantasy owner. Use this for filtering when a user asks about a specific person (e.g., 'Dylan').\n  - total_wins: The owner's total number of wins across all regular seasons they have participated in.\n  - total_losses: The owner's total number of losses across all regular seasons they have participated in.\n  - total_ties: The owner's total number of ties across all regular seasons they have participated in.\n  - total_win_percentage: The owner's lifetime winning percentage for regular season games.\n  - total_points_for: The total number of fantasy points this owner's teams have scored across all regular seasons.\n  - total_points_against: The total number of fantasy points scored against this owner's teams across all regular seasons.\n  - points_for_per_game: The average number of points this owner's teams score per regular season game over their lifetime.\n  - points_against_per_game: The average number of points scored against this owner's teams per regular season game over their lifetime.\n  - total_player_acquisitions: The total number of players this owner has acquired across all seasons.\n  - average_final_standing: The owner's average final ranking (including playoffs) at the end of all seasons they participated in.\n  - championships_won: The total number of fantasy league championships this owner has won.\n  - average_regular_season_finish: The owner's average finishing position at the end of the regular season across all seasons.\n\n📄 TABLE: FantasySeasons_LLM\n   Description: Contains high-level metadata about each season (year). Use this to find the champion of a specific year or to get a season_id from a year.\n   Columns:\n  - season_id: The unique primary key for a fantasy season, representing the calendar year (e.g., 2022, 2023). Use this ID to join to other tables to filter data for a specific year.\n  - league_name: The name of the fantasy league for that particular season.\n  - team_count: The total number of teams that participated in the league during that season.\n  - playoff_team_count: The number of teams that qualified for the playoffs in that season.\n  - regular_season_matchup_count: The number of matchups each team played during the regular season.\n  - scoring_format: The scoring format used for the league in that season (e.g., 'PPR', 'Standard').\n  - champion_owner_id: The owner_id of the champion. JOIN to FantasyOwners_LLM on this ID to get the champion's name.\n  - champion_team_id: The fantasy_team_id of the champion. JOIN to FantasyTeams_LLM on this ID to get the champion's team name.\n\n==================================================",
+        "sql_query": "SELECT T2.owner_name, T1.season_id FROM FantasySeasons_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T1.final_standing = 1 AND T1.season_id = 2020"
+      }
+    ],
+    "signature": {
+      "instructions": "Generate a valid SQLite query to answer the question based on the schema.\nFollow specific SQL recipes for Head-to-Head and Rankings.",
+      "fields": [
+        {
+          "prefix": "Question:",
+          "description": "The user's specific question"
+        },
+        {
+          "prefix": "Db Schema:",
+          "description": "The database schema with table and column details"
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Sql Query:",
+          "description": "The executable SQLite query"
+        },
+        {
+          "prefix": "Thought:",
+          "description": "Brief logic for the query"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.12",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

@@ -11,17 +11,18 @@ from .state import AgentState
 # --- Import helper functions and models from sql_agent.py ---
 from .sql_agent import (
     get_db,
-    get_llm,
-    get_structured_llm,
     load_table_descriptions,
     get_detailed_schema_info,
-    build_sql_agent_graph,
-    TableSelection,
     VALID_FANTASY_OWNERS,
+    SafeSQLQueryTool,
 )
+
+from .dspy_config import init_dspy
+from .dspy_modules import get_query_enhancer, get_table_router, get_responder, get_sql_generator
 
 # --- Setup ---
 logger = logging.getLogger(__name__)
+init_dspy()
 
 
 # =========================================================================
@@ -85,39 +86,15 @@ def node_query_enhancer(state: AgentState) -> dict:
     user_query = state["input"]
 
     # We need the history to resolve "he", "that year", etc.
-    history = state["messages"]
+    history = str(state["messages"]) # Convert history to string for DSPy
 
-    llm = get_llm()
-
-    system_prompt = """You are a helpful assistant that refines user questions for a Fantasy Football database.
-    
-    Your goal is to rewrite the user's question to be **Specific** and **Narratively Rich**.
-    
-    **RULES FOR REWRITING:**
-    1. **Resolve Pronouns (CRITICAL):** 
-       - If the user says "he", "him", "his team", or "that year", replace it with the specific Name or Year from the conversation history.
-       - *Ex:* "Did he make the playoffs?" -> "Did Dylan make the playoffs in 2021?"
-       
-    2. **Add Narrative Context (Not just stats):**
-       - If asking **"Who won?"**: Rewrite to "Who won the championship, who was the runner-up, and what was the score?" (Stories need a winner AND a loser).
-       - If asking **"Who had the best record?"**: Rewrite to "Who had the best record and what was their specific Win-Loss count?"
-       - If asking **"Did X beat Y?"**: Rewrite to "Did X beat Y and what was the score difference?"
-       
-    3. **Keep it Natural:** 
-       - Do not ask for "columns". Ask for "details".
-       - If the user is just chatting ("Hi", "Thanks"), return the input unchanged.
-
-    **OUTPUT:**
-    Return ONLY the rewritten question.
-    """
-
-    # We pass the system prompt + the last few messages of context + the current input
-    # This allows the LLM to see "Who won in 2016?" (History) -> "Jack" (History) -> "Who did he play?" (Current)
-    # And rewrite it to: "Who did Jack play in the 2016 championship?"
-    messages = [SystemMessage(content=system_prompt)] + history
-
-    response = llm.invoke(messages)
-    enhanced_query = response.content
+    try:
+        query_enhancer = get_query_enhancer()
+        result = query_enhancer(history=history, user_query=user_query)
+        enhanced_query = result.enhanced_query
+    except Exception as e:
+        logger.error(f"Query Enhancer failed: {e}", exc_info=True)
+        enhanced_query = user_query
 
     logger.info(f"Original: {user_query}")
     logger.info(f"Enhanced: {enhanced_query}")
@@ -173,47 +150,36 @@ Rules for this query:
 """
     # --- PYTHON LOGIC END ---
 
-    prompt = f"""You are an expert database architect. Identify the database tables required.
-
-{owner_hint}
-
-**CONTEXTUAL ANALYSIS (CRITICAL):**
-1. **Follow-up Questions:** When the user sends a message, you MUST look at the **Conversation History** to understand the topic. If they are following up on a previous question about Owners, Drafts, or Matchups, you MUST include those relevant Specialty Tables.
-2. **New Topics:** If the user changes the subject completely, ignore the old tables and select based on the new question.
-
-**TABLE SELECTION INSTRUCTIONS:**
-- Your job is to select **Specialty Tables** needed *in addition* to the Core Tables.
-- **Core Tables (Auto-Included):** `FantasyOwners_LLM`, `FantasySeasons_LLM`, `FantasyTeams_LLM`, 'FantasyMatchups_LLM'.
-- **If the User's question can be answered using ONLY the Core Tables (e.g., "How many points did Chris score?", "Who won in 2020?"), return an EMPTY list `[]`.**
-- If the user asks about Matchups, Drafts, or Players, select those specific tables.
-- Its better to include extra tables that might be helpful than to miss a needed one.
-
-**NAME DISAMBIGUATION RULES:**
-1. **Single First Name** (e.g. "Chris", "Dylan") -> **Owner**. (Use Core Tables).
-2. **Full Name / Nickname** (e.g. "Chris Godwin", "CMC") -> **NFL Player**. (Use `Players_LLM`).
-
-**"CHEAT SHEET" TABLES:**
-- **All-Time Records:** `OwnerCareerLeaderboard_LLM`.
-- **Regular Season Records:** `RegularSeasonStandings_LLM`.
-- **Head-to-Head:** `HeadToHeadMatchups_LLM`.
-- **Drafts:** `DraftAnalysis_Full_LLM`.
-
-**PLAYER STATS LOGIC:**
-- Only select `Players_LLM` if the name is **NOT** a valid Owner.
-- If asking about an NFL Player, include `Players_LLM` + all Position tables for the timeframe.
-
-**Available Tables:**
-{table_descriptions}
-
-**User Question:**
-"{user_query}"
-
-Return the list of table names (or empty list if only Core Tables are needed).
-"""
-
     try:
-        result: TableSelection = structured_llm.invoke(prompt)
-        llm_selected = set(result.tables)
+        table_router = get_table_router()
+        # Ensure input args match the module signature
+        # Signature: user_query, table_descriptions, hint
+        result = table_router(
+            user_query=user_query,
+            table_descriptions=table_descriptions,
+            hint=owner_hint
+        )
+
+        # Parse the output. DSPy output is a Prediction object, attributes match output fields.
+        # selected_tables might be a string representation of a list if generated by LLM text.
+        # However, dspy.OutputField is usually text.
+        # We need to parse the list from text if it's not structured.
+        # But wait, we can use dspy.TypedPredictor if we want structured output,
+        # but here we used dspy.ChainOfThought(Signature).
+        # We need to robustly parse the `selected_tables` field.
+
+        raw_tables = result.selected_tables
+        reasoning = result.reasoning
+
+        # Simple cleanup if it's a string like "['TableA', 'TableB']"
+        if isinstance(raw_tables, str):
+            # Remove brackets and split
+            cleaned = raw_tables.strip("[]").replace("'", "").replace('"', "")
+            llm_selected = {t.strip() for t in cleaned.split(",")} if cleaned.strip() else set()
+        elif isinstance(raw_tables, list):
+            llm_selected = set(raw_tables)
+        else:
+            llm_selected = set()
 
         # Merge with Core
         final_tables = list(core_tables.union(llm_selected))
@@ -224,7 +190,7 @@ Return the list of table names (or empty list if only Core Tables are needed).
 
         return {
             "selected_tables": final_tables,
-            "table_selection_reasoning": result.reasoning,
+            "table_selection_reasoning": reasoning,
         }
 
     except Exception as e:
@@ -249,80 +215,57 @@ def node_schema_builder(state: AgentState) -> dict:
 
 def node_sql_agent(state: AgentState) -> dict:
     """
-    Node 3: The Constrained SQL Agent.
-    Includes a "Safety Net" for when the agent writes SQL but forgets to call the tool.
+    Node 3: The Constrained SQL Agent (DSPy Powered).
+    Generates SQL using DSPy and executes it.
     """
-    logger.info("---NODE: SQL AGENT---")
+    logger.info("---NODE: SQL AGENT (DSPy)---")
 
     if not state.get("forced_schema"):
         return {"messages": [AIMessage(content="Error: No schema found.")]}
 
-    # 1. Run the Subgraph
-    agent_graph = build_sql_agent_graph(forced_schema=state["forced_schema"])
-    result = agent_graph.invoke({"messages": state["messages"]})
+    schema = state["forced_schema"]
+    # query_enhancer rewrites the input to be self-contained in state['input'].
+    question = state["input"]
 
-    # 2. Get the New Messages
-    new_messages = result["messages"][len(state["messages"]) :]
+    sql_generator = get_sql_generator()
 
-    # 3. LOGGING (Keep your trace logic)
-    print("\n" + "=" * 40)
-    print("🤖 AGENT INTERNAL THOUGHTS:")
-    for msg in new_messages:
-        if isinstance(msg, AIMessage) and msg.content:
-            print(f"\n{str(msg.content).strip()}\n")
-    print("=" * 40 + "\n")
+    # Try generation
+    try:
+        prediction = sql_generator(question=question, db_schema=schema)
+        sql_query = prediction.sql_query
+        thought = prediction.thought
+    except Exception as e:
+        logger.error(f"SQL Generation failed: {e}", exc_info=True)
+        return {"messages": [AIMessage(content=f"Error generating SQL: {e}")]}
 
-    # -------------------------------------------------------
-    # THE SAFETY NET: Catch "Code Block Hallucination"
-    # -------------------------------------------------------
-    if new_messages:
-        last_msg = new_messages[-1]
+    # Clean SQL (remove markdown if present)
+    clean_sql = sql_query.replace("```sql", "").replace("```", "").strip()
 
-        # Check if the agent acted (Tool Call) or just talked (AIMessage)
-        if isinstance(last_msg, AIMessage) and not last_msg.tool_calls:
+    # Execute
+    db = get_db()
+    tool = SafeSQLQueryTool(db=db)
 
-            # Regex to find SQL inside markdown blocks ```sql ... ```
-            sql_match = re.search(
-                r"```sql\n(.*?)\n```", str(last_msg.content), re.DOTALL
-            )
+    # We want to mimic the tool calling behavior so the Responder sees a ToolMessage
+    # Create AIMessage with the thought and the "tool call" visualization
+    ai_msg = AIMessage(content=f"**Thought:** {thought}\n\n**Generated SQL:**\n```sql\n{clean_sql}\n```")
 
-            if sql_match:
-                logger.info(
-                    "Agent wrote SQL but forgot to call tool. Executing manually..."
-                )
-                sql_query = sql_match.group(1).strip()
+    # Execute
+    try:
+        # We can call tool._run directly
+        result_str = tool._run(clean_sql)
+        tool_msg = ToolMessage(
+            content=result_str,
+            tool_call_id="dspy_sql_call",
+            name="sql_db_query"
+        )
+    except Exception as e:
+        tool_msg = ToolMessage(
+            content=f"Error executing SQL: {e}",
+            tool_call_id="dspy_sql_call_error",
+            name="sql_db_query"
+        )
 
-                try:
-                    # Manually run the query
-                    db = get_db()
-                    tool_result = db.run(sql_query)
-
-                    # Inject the result as a ToolMessage so the Responder sees it
-                    # We make up a dummy tool_call_id
-                    manual_tool_msg = ToolMessage(
-                        content=tool_result,
-                        tool_call_id="manual_safety_net_fix",
-                        name="sql_db_query",
-                    )
-                    new_messages.append(manual_tool_msg)
-
-                except Exception as e:
-                    # If the manual run fails, pass the error to the responder
-                    new_messages.append(
-                        ToolMessage(
-                            content=f"Error executing SQL: {e}",
-                            tool_call_id="manual_safety_net_error",
-                            name="sql_db_query",
-                        )
-                    )
-            else:
-                # Standard cleanup: If no SQL found and no tool call, strip the message
-                # (unless you want to keep the agent's apology/confusion)
-                new_messages.pop()
-
-    # -------------------------------------------------------
-
-    return {"messages": new_messages}
+    return {"messages": [ai_msg, tool_msg]}
 
 
 def node_responder(state: AgentState) -> dict:
@@ -332,39 +275,26 @@ def node_responder(state: AgentState) -> dict:
     """
     logger.info("---NODE: RESPONDER---")
 
-    llm = get_llm()
+    # Extract the last few messages to serve as history
+    history = str(state["messages"][:-1]) # exclude the very last one if we want, or include all
 
-    # 1. System Instructions
-    system_prompt = """You are a helpful fantasy football assistant.
-Your job is to look at the recent database results in the conversation history and answer the user's question.
+    # We need to extract the "Data Context" specifically from the ToolMessage if present
+    data_context = "No new data."
+    messages = state["messages"]
+    if messages and isinstance(messages[-1], ToolMessage):
+        data_context = messages[-1].content
+    elif len(messages) > 1 and isinstance(messages[-2], ToolMessage):
+        data_context = messages[-2].content
 
-RULES:
-1. Answer the user's LATEST question using the LATEST database results.
-2. **Ignore older Tool Outputs** from previous turns in the conversation history. Only focus on the data returned in the most recent step.
-3. If a SQL query was run and returned data (it will be a JSON string with "columns" and "data"), use that data to answer naturally.
-4. If the database returned empty/no data, tell the user you couldn't find that information.
-5. Do NOT mention "SQL", "Tuples", "Python", or "Database columns". Just give the answer.
-"""
+    try:
+        responder = get_responder()
+        result = responder(history=history, data_context=data_context)
+        answer = result.answer
+    except Exception as e:
+        logger.error(f"Responder failed: {e}", exc_info=True)
+        answer = "I'm sorry, I encountered an error while formulating the response."
 
-    # 2. The "Poke"
-    # Gemini often stops processing after seeing a ToolMessage.
-    # We inject a final HumanMessage to force it to evaluate the tool output and generate a response.
-    force_response_message = HumanMessage(
-        content="Based on the database results above, please answer my original question."
-    )
-
-    # 3. Construct the Input
-    # System Prompt + Full History + The Poke
-    messages = (
-        [SystemMessage(content=system_prompt)]
-        + state["messages"]
-        + [force_response_message]
-    )
-
-    # 4. Generate Answer
-    response = llm.invoke(messages)
-
-    return {"messages": [response]}
+    return {"messages": [AIMessage(content=answer)]}
 
 
 # =========================================================================
