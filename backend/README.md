@@ -43,9 +43,10 @@ pip install -r requirements.txt
 Ensure `.env` file exists in the project root with:
 ```ini
 GOOGLE_API_KEY=your_google_api_key
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_key
-LANGCHAIN_PROJECT=fantasy-football-chatbot
+# Langfuse Tracing
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 **3. Database**

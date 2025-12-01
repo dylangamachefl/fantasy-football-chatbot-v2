@@ -2,7 +2,16 @@ import os
 import dspy
 import json
 import logging
+import base64
 from typing import Dict, Any
+
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from openinference.instrumentation.dspy import DSPyInstrumentor
+
+from src.config.llm_config import LLM_API_BASE_URL, LLM_MODEL_NAME, LLM_API_KEY, LLM_PROVIDER
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +72,6 @@ def get_optimized_program(program_name: str, module: dspy.Module) -> dspy.Module
 
     return module
 
-from src.config.llm_config import LLM_API_BASE_URL, LLM_MODEL_NAME, LLM_API_KEY, LLM_PROVIDER
 
 def init_dspy():
     """
@@ -71,6 +79,33 @@ def init_dspy():
     """
     if not LLM_API_KEY:
         raise ValueError("LLM_API_KEY not found in environment variables")
+
+    # Initialize Langfuse Tracing for DSPy if keys are present
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+
+    if public_key and secret_key:
+        try:
+            # Configure OpenTelemetry to send traces to Langfuse
+            auth_str = f"{public_key}:{secret_key}"
+            encoded_auth = base64.b64encode(auth_str.encode()).decode()
+
+            tracer_provider = TracerProvider()
+            trace.set_tracer_provider(tracer_provider)
+
+            otlp_exporter = OTLPSpanExporter(
+                endpoint=f"{host}/api/public/otlp/v1/traces",
+                headers={"Authorization": f"Basic {encoded_auth}"}
+            )
+
+            span_processor = BatchSpanProcessor(otlp_exporter)
+            tracer_provider.add_span_processor(span_processor)
+
+            DSPyInstrumentor().instrument()
+            logger.info("Langfuse Tracing enabled for DSPy (OTLP configured)")
+        except Exception as e:
+            logger.warning(f"Failed to enable Langfuse Tracing for DSPy: {e}")
 
     # Configure DSPy
     # We use the generic 'openai/' provider prefix to leverage the standardized API

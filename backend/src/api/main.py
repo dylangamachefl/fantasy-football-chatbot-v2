@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langchain_core.messages import HumanMessage
+from langfuse.langchain import CallbackHandler
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -38,11 +39,13 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 # Globals for lifecycle management
 agent_app = None
 db_connection = None
+langfuse_handler = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global agent_app, db_connection
+    global agent_app, db_connection, langfuse_handler
     # Startup
+    langfuse_handler = CallbackHandler()
     db_connection = await aiosqlite.connect(DB_PATH)
     checkpointer = AsyncSqliteSaver(db_connection)
     await checkpointer.setup()
@@ -106,7 +109,10 @@ async def stream_generator(query: str, thread_id: str) -> AsyncGenerator[str, No
     - error: Any error message.
     - done: End of stream.
     """
-    config = {"configurable": {"thread_id": thread_id}}
+    # Use global Langfuse CallbackHandler or create new one if not available
+    current_handler = langfuse_handler if langfuse_handler else CallbackHandler()
+
+    config = {"configurable": {"thread_id": thread_id}, "callbacks": [current_handler]}
     input_message = HumanMessage(content=query)
 
     try:

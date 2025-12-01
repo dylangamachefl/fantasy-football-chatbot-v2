@@ -13,6 +13,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
+from langfuse.langchain import CallbackHandler
 
 # --- IMPORT WORKFLOW ---
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
@@ -59,9 +60,10 @@ def run_conversation_turn(question: str, thread_id: str) -> AgentState:
     """Runs a single turn of the conversation using the persistent thread_id."""
     # FIX: Increased delay to 5s to stay safely under 15 RPM
     rate_limit = RateLimitingCallbackHandler(delay_seconds=5)
+    langfuse_handler = CallbackHandler()
     config = {
         "configurable": {"thread_id": thread_id},
-        "callbacks": [rate_limit],
+        "callbacks": [rate_limit, langfuse_handler],
     }
     input_payload = {"messages": [HumanMessage(content=question)], "input": question}
     try:
