@@ -18,3 +18,4 @@ langfuse
 openinference-instrumentation-dspy
 opentelemetry-sdk
 opentelemetry-exporter-otlp
+requests>=2.31.0
