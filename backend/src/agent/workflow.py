@@ -14,6 +14,7 @@ from .sql_agent import (
     get_detailed_schema_info,
     VALID_FANTASY_OWNERS,
     SafeSQLQueryTool,
+    get_structured_llm,
 )
 
 from .dspy_config import init_dspy
