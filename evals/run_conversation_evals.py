@@ -1,5 +1,5 @@
 import os
-import sys  # Needed for sys.exit
+import sys
 import pandas as pd
 import logging
 import uuid
@@ -15,7 +15,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 
 # --- IMPORT WORKFLOW ---
-# Ensure we can find the backend module
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
 from src.agent.workflow import workflow
 from src.agent.state import AgentState
@@ -58,7 +57,8 @@ def extract_last_turn_sql(messages: list) -> str:
 
 def run_conversation_turn(question: str, thread_id: str) -> AgentState:
     """Runs a single turn of the conversation using the persistent thread_id."""
-    rate_limit = RateLimitingCallbackHandler(delay_seconds=2)
+    # FIX: Increased delay to 5s to stay safely under 15 RPM
+    rate_limit = RateLimitingCallbackHandler(delay_seconds=5)
     config = {
         "configurable": {"thread_id": thread_id},
         "callbacks": [rate_limit],
@@ -117,8 +117,6 @@ def generate_debug_report(all_results, output_filename):
 
 def main():
     parser = argparse.ArgumentParser(description="Run conversational evals.")
-
-    # Updated Arguments
     parser.add_argument(
         "--file",
         type=str,
@@ -131,17 +129,13 @@ def main():
         default=0.0,
         help="Fail script if accuracy is below this %%",
     )
-
-    # NEW: Added output_dir with a default so it works locally automatically
     parser.add_argument(
         "--output_dir", type=str, default="eval_results", help="Folder to save results"
     )
-
     args = parser.parse_args()
 
     logger.info("--- Starting Conversational Eval ---")
 
-    # USE args.output_dir instead of hardcoded string
     os.makedirs(args.output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_filename = os.path.join(args.output_dir, f"eval_conv_{timestamp}.csv")
@@ -150,10 +144,10 @@ def main():
         df = pd.read_csv(args.file)
         if "conversation_id" not in df.columns:
             logger.error("❌ CSV missing 'conversation_id' column.")
-            sys.exit(1)  # Exit with error
+            sys.exit(1)
     except FileNotFoundError:
         logger.error(f"CSV file not found: {args.file}")
-        sys.exit(1)  # Exit with error
+        sys.exit(1)
 
     grouped = df.groupby("conversation_id")
     all_results = []
@@ -193,7 +187,15 @@ def main():
             )
 
     logger.info("Grading results...")
-    eval_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
+
+    # FIX: Initialize Rate Limit Handler for the Judge
+    # 5 seconds delay ensures we stay under the 15 RPM limit
+    judge_rate_limit = RateLimitingCallbackHandler(delay_seconds=5)
+
+    # FIX: Attach the callback to the Judge LLM
+    eval_llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash-lite", temperature=0, callbacks=[judge_rate_limit]
+    )
     eval_chain = QAEvalChain.from_llm(llm=eval_llm)
 
     examples = [
@@ -212,7 +214,8 @@ def main():
                 prediction_key="result",
             )
             grades.extend(single_result)
-            time.sleep(2)
+            # The rate limiter inside the LLM handles the sleep now,
+            # but we can keep a tiny buffer if needed, or remove this explicit sleep.
         except Exception as e:
             logger.error(f"Grading failed for index {i}: {e}")
             grades.append({"results": "ERROR"})
@@ -220,9 +223,13 @@ def main():
 
     correct_count = 0
     for i, grade in enumerate(grades):
-        result_text = grade.get("results", "ERROR").strip()
+        result_text = grade.get("results", "ERROR").strip().upper()
         all_results[i]["grade"] = result_text
-        if "CORRECT" in result_text.upper():
+
+        # FIX: Strict checking order
+        if "INCORRECT" in result_text:
+            pass  # Failure
+        elif "CORRECT" in result_text:
             correct_count += 1
 
     results_df = pd.DataFrame(all_results)
@@ -234,7 +241,6 @@ def main():
     logger.info(f"✅ Done. Accuracy: {accuracy:.2f}%")
     logger.info(f"Saved to {output_filename}")
 
-    # NEW: Exit logic for CI/CD
     if args.threshold > 0 and accuracy < args.threshold:
         logger.error(
             f"❌ FAILED: Accuracy {accuracy:.2f}% is below threshold {args.threshold}%"
