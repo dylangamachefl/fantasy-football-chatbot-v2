@@ -1,2 +1,4 @@
 conversation_id,turn_id,question,ground_truth_answer
-smoke_1,1,Who won the league in 2021?,Mark won the league in 2021.
+convo_01,1,Did Jack win any championships?,"Yes, 1."
+convo_01,2,What year was his most recent one?,2016
+convo_01,3,Who did he play in that championship game and what was the score?,He played Nick and the final score was 192.7-133.9.
