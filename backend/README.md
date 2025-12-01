@@ -12,6 +12,8 @@ The backend uses a **5-Node LangGraph StateGraph** to process requests:
 4. **SQL Agent:** A self-correcting ReAct subgraph that generates and executes SQL
 5. **Responder:** Synthesizes raw database tuples into natural, story-driven answers
 
+**Note:** Actual SQL execution is offloaded to a separate **Sidecar Service** running on port 8081 for security and isolation.
+
 ## Project Structure
 
 ```
@@ -24,9 +26,12 @@ backend/
 │   │   ├── workflow.py   # Main graph orchestrator
 │   │   ├── state.py      # State definitions
 │   │   └── sql_agent.py  # SQL agent & utilities
+│   ├── sidecar/          # SQL Execution Service
+│   │   └── main.py       # Sidecar entrypoint
 │   └── config/           # Configuration
+├── data/                 # Data files (DB, CSVs)
 ├── requirements.txt      # Dependencies
-└── Dockerfile           # Container configuration
+└── Dockerfile            # Container configuration
 ```
 
 ## Setup
@@ -51,11 +56,21 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 
 **3. Database**
 
-Ensure the SQLite database is located at: `data/llm_fantasy_data.db` (relative to project root)
+Ensure the SQLite database is located at: `backend/data/llm_fantasy_data.db`
 
 ## Running the Backend
 
-From the project root:
+You must run **both** the Sidecar and the API.
+
+**1. Start the Sidecar:**
+
+```bash
+cd backend
+python -m src.sidecar.main
+```
+(Runs on port 8081)
+
+**2. Start the API:**
 
 ```bash
 cd backend
@@ -102,7 +117,7 @@ Process a user query through the LangGraph agent.
 - **`src/api/main.py`**: FastAPI application and endpoints
 - **`src/agent/workflow.py`**: The main LangGraph orchestrator
 - **`src/agent/sql_agent.py`**: SQL agent subgraph and database utilities
-- **`src/agent/state.py`**: Agent state definitions
+- **`src/sidecar/main.py`**: The SQL execution service
 
 ## Development
 

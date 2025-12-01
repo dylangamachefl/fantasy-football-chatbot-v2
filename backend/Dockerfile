@@ -12,7 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application source code and data into the container
 COPY src/ ./src/
-COPY llm_fantasy_data.db .
 COPY data/ ./data/
 
 # Make port 8000 available to the world outside this container
