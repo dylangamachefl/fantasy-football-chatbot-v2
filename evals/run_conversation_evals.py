@@ -1,4 +1,5 @@
 import os
+import sys  # Needed for sys.exit
 import pandas as pd
 import logging
 import uuid
@@ -14,7 +15,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 
 # --- IMPORT WORKFLOW ---
-import sys
+# Ensure we can find the backend module
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
 from src.agent.workflow import workflow
 from src.agent.state import AgentState
@@ -32,6 +33,7 @@ app = workflow.compile(checkpointer=memory)
 
 class RateLimitingCallbackHandler(BaseCallbackHandler):
     """Callback to add a delay between LLM calls to avoid rate limiting."""
+
     def __init__(self, delay_seconds: int = 5):
         self.delay_seconds = delay_seconds
 
@@ -115,24 +117,43 @@ def generate_debug_report(all_results, output_filename):
 
 def main():
     parser = argparse.ArgumentParser(description="Run conversational evals.")
-    parser.add_argument("--file", type=str, default="data/test_set_conversations.csv", help="Path to input CSV file")
-    parser.add_argument("--threshold", type=float, default=0.0, help="Threshold for passing (not currently used for exit code)")
+
+    # Updated Arguments
+    parser.add_argument(
+        "--file",
+        type=str,
+        default="data/test_set_conversations.csv",
+        help="Path to input CSV file",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.0,
+        help="Fail script if accuracy is below this %%",
+    )
+
+    # NEW: Added output_dir with a default so it works locally automatically
+    parser.add_argument(
+        "--output_dir", type=str, default="eval_results", help="Folder to save results"
+    )
+
     args = parser.parse_args()
 
     logger.info("--- Starting Conversational Eval ---")
-    output_dir = "eval_results"
-    os.makedirs(output_dir, exist_ok=True)
+
+    # USE args.output_dir instead of hardcoded string
+    os.makedirs(args.output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = os.path.join(output_dir, f"eval_conv_{timestamp}.csv")
+    output_filename = os.path.join(args.output_dir, f"eval_conv_{timestamp}.csv")
 
     try:
         df = pd.read_csv(args.file)
         if "conversation_id" not in df.columns:
             logger.error("❌ CSV missing 'conversation_id' column.")
-            return
+            sys.exit(1)  # Exit with error
     except FileNotFoundError:
         logger.error(f"CSV file not found: {args.file}")
-        return
+        sys.exit(1)  # Exit with error
 
     grouped = df.groupby("conversation_id")
     all_results = []
@@ -158,22 +179,26 @@ def main():
                 selected_tables = str(state.get("selected_tables", []))
                 enhanced_query = state.get("input", "N/A")
 
-            all_results.append({
-                "conversation_id": conv_id,
-                "turn_id": row["turn_id"],
-                "question": question,
-                "enhanced_query": enhanced_query,
-                "ground_truth": ground_truth,
-                "prediction": predicted_answer,
-                "sql_executed": sql_executed,
-                "selected_tables": selected_tables,
-            })
+            all_results.append(
+                {
+                    "conversation_id": conv_id,
+                    "turn_id": row["turn_id"],
+                    "question": question,
+                    "enhanced_query": enhanced_query,
+                    "ground_truth": ground_truth,
+                    "prediction": predicted_answer,
+                    "sql_executed": sql_executed,
+                    "selected_tables": selected_tables,
+                }
+            )
 
     logger.info("Grading results...")
     eval_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
     eval_chain = QAEvalChain.from_llm(llm=eval_llm)
 
-    examples = [{"query": r["question"], "answer": r["ground_truth"]} for r in all_results]
+    examples = [
+        {"query": r["question"], "answer": r["ground_truth"]} for r in all_results
+    ]
     predictions = [{"result": r["prediction"]} for r in all_results]
     grades = []
 
@@ -208,6 +233,14 @@ def main():
     accuracy = (correct_count / len(all_results)) * 100
     logger.info(f"✅ Done. Accuracy: {accuracy:.2f}%")
     logger.info(f"Saved to {output_filename}")
+
+    # NEW: Exit logic for CI/CD
+    if args.threshold > 0 and accuracy < args.threshold:
+        logger.error(
+            f"❌ FAILED: Accuracy {accuracy:.2f}% is below threshold {args.threshold}%"
+        )
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
