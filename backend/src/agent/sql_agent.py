@@ -57,7 +57,7 @@ class SafeSQLQueryTool(BaseTool):
     description: str = (
         "Run a SQLite query against the database. Use this to answer any user questions."
     )
-    sidecar_url: str = "http://localhost:8081"
+    sidecar_url: str = Field(default_factory=lambda: os.environ.get("SIDECAR_URL", "http://localhost:8081"))
 
     def _run(self, query: str) -> str:
         try:
@@ -209,7 +209,7 @@ def get_detailed_schema_info(
         # Fallback: Ask Sidecar for schema
         try:
              # We assume sidecar is at localhost:8081 for now, but should use env var in prod
-             sidecar_url = "http://localhost:8081"
+             sidecar_url = os.environ.get("SIDECAR_URL", "http://localhost:8081")
              resp = requests.get(f"{sidecar_url}/schema", params={"table_names": table_names})
              if resp.status_code == 200:
                  return resp.json().get("schema", "No schema found.")

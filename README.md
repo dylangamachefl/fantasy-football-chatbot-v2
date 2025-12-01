@@ -8,7 +8,7 @@ The agent uses a **5-Node StateGraph** to process requests:
 1.  **Query Enhancer:** Rewrites user input to resolve pronouns ("he" → "Dylan") and request narrative details (scores, opponents).
 2.  **Table Router:** Selects tables using Python-based "Owner Detection" and LLM reasoning.
 3.  **Schema Builder:** Retrieves specific table/column context.
-4.  **SQL Agent:** A self-correcting ReAct subgraph that generates and executes SQL.
+4.  **SQL Agent:** A self-correcting ReAct subgraph that generates and executes SQL via a secure **Sidecar** service.
 5.  **Responder:** Synthesizes raw database tuples into natural, story-driven answers.
 
 ## 📂 Project Structure
@@ -18,12 +18,13 @@ fantasy-football-chatbot-v2/
 ├── backend/              # FastAPI backend service
 │   ├── src/
 │   │   ├── api/         # API endpoints and models
-│   │   └── agent/       # LangGraph agent logic
+│   │   ├── agent/       # LangGraph agent logic
+│   │   └── sidecar/     # Secure SQL execution service
 │   └── requirements.txt
 ├── frontend/            # Streamlit frontend
 │   ├── app.py
 │   └── requirements.txt
-├── data/                # Shared data files
+├── backend/data/        # Shared data files (DB, CSVs)
 │   └── llm_fantasy_data.db
 ├── evals/               # Evaluation scripts
 └── docker-compose.yml   # Multi-service orchestration
@@ -50,33 +51,55 @@ pip install -r requirements.txt
 **2. Environment Variables**
 
 Create a `.env` file in the root directory:
+
 ```ini
+# LLM Configuration
 GOOGLE_API_KEY=your_google_api_key
-# Langfuse Tracing
+
+# Optional: Langfuse Tracing
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_HOST=https://cloud.langfuse.com
+
+# Optional: LLM Provider Overrides (Default: gemini)
+# LLM_PROVIDER=ollama
+# LLM_API_BASE_URL=http://localhost:11434/v1
+# LLM_MODEL_NAME=llama3
+
+# Optional: Internal Service Configuration
+# SIDECAR_URL=http://localhost:8081  # Default
 ```
 
 **3. Database**
 
-Ensure your SQLite database is located at: `data/llm_fantasy_data.db`
+Ensure your SQLite database is located at: `backend/data/llm_fantasy_data.db`
 
 ## 🚀 Usage
 
 ### Option 1: Run Services Separately
 
-**Start the Backend API:**
+**1. Start the Sidecar Service (SQL Engine):**
+```bash
+cd backend
+python -m src.sidecar.main
+```
+*Runs on port 8081.*
+
+**2. Start the Backend API (Agent):**
+In a new terminal:
 ```bash
 cd backend
 python -m uvicorn src.api.main:app --reload --port 8000
 ```
+*Runs on port 8000.*
 
-**Start the Frontend (in a new terminal):**
+**3. Start the Frontend (UI):**
+In a new terminal:
 ```bash
 cd frontend
 streamlit run app.py
 ```
+*Runs on port 8501.*
 
 ### Option 2: Use Docker Compose
 
@@ -84,8 +107,9 @@ streamlit run app.py
 docker-compose up
 ```
 
-This will start both services together:
+This will start all services together:
 - Backend API: http://localhost:8000
+- SQL Sidecar: http://localhost:8081
 - Frontend UI: http://localhost:8501
 
 ## 🧪 Run Evaluations
@@ -100,6 +124,7 @@ python run_conversation_evals.py
 
 *   **`backend/src/agent/workflow.py`**: The Orchestrator. Contains the **Query Enhancer**, **Router**, and **Responder** nodes.
 *   **`backend/src/agent/sql_agent.py`**: The Specialist. Contains the **SQL Agent Subgraph**, System Prompts, and Table Definitions.
+*   **`backend/src/sidecar/main.py`**: The Executor. Secure service for executing read-only SQL queries.
 *   **`frontend/app.py`**: Streamlit frontend with Session State and conversation persistence.
 *   **`backend/src/api/main.py`**: FastAPI application with `/chat` endpoint.
 
