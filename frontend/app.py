@@ -147,11 +147,13 @@ for idx, message in enumerate(st.session_state.messages):
 
 
 # Handle pending question from suggested questions
+user_input = st.chat_input("Ask me about fantasy football...")
+
 if "pending_question" in st.session_state:
     prompt = st.session_state.pending_question
     del st.session_state.pending_question
 else:
-    prompt = st.chat_input("Ask me about fantasy football...")
+    prompt = user_input
 
 # Handle User Input
 if prompt:
