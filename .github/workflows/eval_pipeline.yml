@@ -12,31 +12,33 @@ jobs:
 
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      PYTHONPATH: ${{ github.workspace }} 
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
+        
         run: |
-          cd backend
-          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
 
       - name: Run Smoke Test Evals
-        # We assume you create a smaller 'smoke_test.csv' for quick checks
-        # Running the full 30-turn convo might cost too much time/money on every push
+
         run: |
-          cd backend
-          python run_conversation_evals.py --file data/smoke_test.csv --threshold 90
+          python evals/run_conversation_evals.py \
+            --file backend/data/smoke_test.csv \
+            --output_dir evals/results \
+            --threshold 90
 
       - name: Archive Eval Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eval-reports
-          path: backend/eval_results/
+          path: evals/results/
