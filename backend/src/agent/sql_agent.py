@@ -4,12 +4,12 @@ import os
 import csv
 import json
 import logging
+import requests
 from typing import List
 from pydantic import BaseModel, Field
 
 # --- LangChain Imports ---
 from langchain.agents import create_agent
-from langchain_community.utilities import SQLDatabase
 from langchain_openai import ChatOpenAI
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
@@ -17,11 +17,6 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import SystemMessage
 from src.config.llm_config import LLM_API_BASE_URL, LLM_MODEL_NAME, LLM_API_KEY
-
-# --- SQL Parsing Library ---
-import sqlglot
-from sqlglot import exp
-from sqlalchemy import text
 
 # --- Setup ---
 logger = logging.getLogger(__name__)
@@ -62,51 +57,26 @@ class SafeSQLQueryTool(BaseTool):
     description: str = (
         "Run a SQLite query against the database. Use this to answer any user questions."
     )
-    db: SQLDatabase
+    sidecar_url: str = "http://localhost:8081"
 
     def _run(self, query: str) -> str:
         try:
-            # 1. Parse only to ensure it is syntactically valid SQL
-            parsed_query = sqlglot.parse_one(query, read="sqlite")
-            if not parsed_query:
-                return "Error: The provided SQL query is invalid or empty. Please check your syntax."
+            resp = requests.post(f"{self.sidecar_url}/query", json={"query": query})
 
-            # 2. Security Check: Ensure it is a SELECT statement
-            # We iterate through all expressions to make sure there are no modification commands
-            for node in parsed_query.walk():
-                if isinstance(
-                    node,
-                    (
-                        exp.Insert,
-                        exp.Update,
-                        exp.Delete,
-                        exp.Drop,
-                        exp.Create,
-                        exp.Alter,
-                    ),
-                ):
-                    return "Error: You are only allowed to execute SELECT queries."
+            # If the sidecar is down or errors, raise exception
+            resp.raise_for_status()
 
-            # 3. Execution: Trust the Database
-            # We execute via SQLAlchemy engine to get structured data (headers + rows)
-            # distinct from the default self.db.run() which returns a stringified tuple list.
-            # We use the engine directly to ensure we get the result proxy.
-            # Note: accessing _engine is necessary as SQLDatabase wrapper doesn't expose execution proxy directly
-            with self.db._engine.connect() as connection:
-                result = connection.execute(text(query))
+            resp_data = resp.json()
 
-                # Extract columns and rows
-                columns = list(result.keys())
-                rows = [dict(row._mapping) for row in result.fetchall()]
+            if resp_data.get("error"):
+                 return json.dumps({"error": resp_data["error"]})
 
             # Return as JSON string so the Agent AND the Frontend can parse it
-            return json.dumps({"columns": columns, "data": rows}, default=str)
+            return json.dumps({"columns": resp_data.get("columns", []), "data": resp_data.get("data", [])}, default=str)
 
         except Exception as e:
-            # Return the raw database error to the agent so it can self-correct
-            # We wrap it in a JSON structure so the frontend (which expects JSON for this tool)
-            # doesn't crash if it tries to parse this error as data.
-            return json.dumps({"error": f"Database Error: {str(e)}"})
+            # Return the raw error to the agent so it can self-correct
+            return json.dumps({"error": f"Sidecar/Network Error: {str(e)}"})
 
     async def _arun(self, query: str) -> str:
         raise NotImplementedError("SafeSQLQueryTool does not support async execution.")
@@ -168,33 +138,6 @@ def get_structured_llm():
     if _structured_llm is None:
         _structured_llm = get_llm().with_structured_output(TableSelection)
     return _structured_llm
-
-
-_db = None
-
-
-def get_db():
-    global _db
-    if _db is None:
-        db_path = get_data_path("data/llm_fantasy_data.db")
-        if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Database file '{db_path}' not found.")
-
-        # Set mode=ro (Read Only) to ensure database integrity at the connection level
-        db_uri = f"sqlite:///{db_path}?mode=ro"
-
-        valid_tables = get_valid_table_names()
-        if not valid_tables:
-            raise ValueError("No valid tables found.")
-
-        _db = SQLDatabase.from_uri(
-            db_uri,
-            include_tables=valid_tables,
-            sample_rows_in_table_info=0,
-            lazy_table_reflection=True,
-            view_support=True,
-        )
-    return _db
 
 
 _table_descriptions_cache = None
@@ -263,8 +206,17 @@ def get_detailed_schema_info(
                     )
     except Exception as e:
         logger.error(f"Error reading column dictionary: {e}")
-        # Fallback: If CSV fails, use the basic SQL engine schema
-        return get_db().get_table_info(table_names)
+        # Fallback: Ask Sidecar for schema
+        try:
+             # We assume sidecar is at localhost:8081 for now, but should use env var in prod
+             sidecar_url = "http://localhost:8081"
+             resp = requests.get(f"{sidecar_url}/schema", params={"table_names": table_names})
+             if resp.status_code == 200:
+                 return resp.json().get("schema", "No schema found.")
+        except Exception as sidecar_err:
+             logger.error(f"Sidecar schema fetch failed: {sidecar_err}")
+
+        return "Error loading detailed schema info."
 
     # 3. Construct the Final String
     schema_parts = ["=" * 50, "DATABASE SCHEMA", "=" * 50]
@@ -284,13 +236,8 @@ def get_detailed_schema_info(
             if cols:
                 schema_parts.extend(cols)
             else:
-                # Fallback if we have table desc but no column CSV data
-                # We can ask the DB for raw columns
-                try:
-                    raw_schema = get_db().get_table_info([t_name])
-                    schema_parts.append(f"   (Using raw DDL)\n{raw_schema}")
-                except:
-                    schema_parts.append("   No column info found.")
+                # Fallback removed
+                schema_parts.append("   No column info found.")
 
     schema_parts.append("\n" + "=" * 50)
     return "\n".join(schema_parts)
@@ -306,9 +253,8 @@ def build_sql_agent_graph(forced_schema: str):
     Builds a pure LangGraph v1 StateGraph for the SQL Agent.
     """
     llm = get_llm()
-    db = get_db()
 
-    tools = [SafeSQLQueryTool(db=db)]
+    tools = [SafeSQLQueryTool()]
     llm_with_tools = llm.bind_tools(tools)
 
     system_message_content = f"""You are an expert SQLite data analyst. 
