@@ -12,3 +12,4 @@ streamlit>=1.30.0
 langgraph-checkpoint-sqlite
 aiosqlite
 sqlalchemy
+dspy-ai
