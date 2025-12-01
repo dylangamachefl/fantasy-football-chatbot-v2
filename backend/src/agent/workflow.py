@@ -19,6 +19,7 @@ from .sql_agent import (
 
 from .dspy_config import init_dspy
 from .dspy_modules import get_query_enhancer, get_table_router, get_responder, get_sql_generator
+from src.rate_limiter import throttle
 
 # --- Setup ---
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ def node_greeting_handler(state: AgentState) -> dict:
     Node 0: Greeting Handler.
     Responds to simple greetings without querying the database.
     """
+    throttle()
     logger.info("---NODE: GREETING HANDLER---")
     
     response_text = """Hi there! 👋 I'm your Fantasy Football Oracle assistant. 
@@ -82,6 +84,7 @@ def node_query_enhancer(state: AgentState) -> dict:
     Rewrites the user's question to ensure the final answer feels like a story, not a spreadsheet.
     Also resolves pronouns ("he", "it") using history to make the Router's job easier.
     """
+    throttle()
     logger.info("---NODE: QUERY ENHANCER---")
     user_query = state["input"]
 
@@ -109,6 +112,7 @@ def node_table_router(state: AgentState) -> dict:
     Node 1: The Database Router.
     Uses Python to pre-validate Owner names to prevent LLM hallucinations.
     """
+    throttle()
     logger.info("---NODE: TABLE ROUTER---")
 
     # Initialize resources lazily to avoid import-time errors
@@ -203,6 +207,7 @@ def node_schema_builder(state: AgentState) -> dict:
     Node 2: Schema Builder.
     Retrieves the specific columns for the selected tables.
     """
+    throttle()
     logger.info("---NODE: SCHEMA BUILDER---")
     if not state.get("selected_tables"):
         # If no tables selected, we can't build a schema.
@@ -218,6 +223,7 @@ def node_sql_agent(state: AgentState) -> dict:
     Node 3: The Constrained SQL Agent (DSPy Powered).
     Generates SQL using DSPy and executes it.
     """
+    throttle()
     logger.info("---NODE: SQL AGENT (DSPy)---")
 
     if not state.get("forced_schema"):
@@ -272,6 +278,7 @@ def node_responder(state: AgentState) -> dict:
     Node 4: The Responder (Synthesizer).
     Looks at the conversation history (User Query -> SQL -> Tool Output) and speaks to the user.
     """
+    throttle()
     logger.info("---NODE: RESPONDER---")
 
     # Extract the last few messages to serve as history

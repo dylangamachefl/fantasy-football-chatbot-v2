@@ -21,21 +21,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
 from src.agent.workflow import app
 from src.agent.state import AgentState
-
-
-class RateLimitingCallbackHandler(BaseCallbackHandler):
-    """Callback to add a delay between LLM calls to avoid rate limiting."""
-
-    def __init__(self, delay_seconds: int = 2):
-        self.delay_seconds = delay_seconds
-
-    def on_llm_start(self, serialized: dict, prompts: list[str], **kwargs) -> None:
-        time.sleep(self.delay_seconds)
-
-    def on_chat_model_start(
-        self, serialized: dict, messages: list[list[BaseMessage]], **kwargs
-    ) -> None:
-        time.sleep(self.delay_seconds)
+from src.rate_limiter import throttle
 
 
 def extract_sql_from_messages(messages: list[BaseMessage]) -> str:
@@ -85,8 +71,6 @@ def run_agent_on_question(question: str) -> AgentState:
     """
     Initializes the agent with the user's question and runs the graph.
     """
-    rate_limit_callback = RateLimitingCallbackHandler(delay_seconds=5)
-
     # Define the initial state for our new, simplified graph
     initial_state = AgentState(
         input=question, messages=[HumanMessage(content=question)], iteration_count=0
@@ -96,7 +80,7 @@ def run_agent_on_question(question: str) -> AgentState:
         # Invoke the LangGraph app
         response_state = app.invoke(
             initial_state,
-            config={"callbacks": [rate_limit_callback]},
+            config={"callbacks": []},
         )
         return response_state
     except Exception as e:
@@ -164,6 +148,13 @@ def main():
         )
 
     logger.info("Starting LLM-as-a-judge evaluation for all answers...")
+
+    class JudgeRateLimiter(BaseCallbackHandler):
+        def on_llm_start(self, *args, **kwargs):
+            throttle()
+        def on_chat_model_start(self, *args, **kwargs):
+            throttle()
+
     eval_llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
     eval_chain = QAEvalChain.from_llm(llm=eval_llm)
 
@@ -175,14 +166,13 @@ def main():
         {"result": p["predicted_answer"]} for p in all_predictions_with_state
     ]
 
-    eval_rate_limiter = RateLimitingCallbackHandler(delay_seconds=5)
     results = eval_chain.evaluate(
         examples,
         predictions_list,
         question_key="query",
         answer_key="answer",
         prediction_key="result",
-        callbacks=[eval_rate_limiter],
+        callbacks=[JudgeRateLimiter()],
     )
 
     total_questions = len(results)
