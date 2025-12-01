@@ -63,20 +63,39 @@ def get_optimized_program(program_name: str, module: dspy.Module) -> dspy.Module
 
     return module
 
+from src.config.llm_config import LLM_API_BASE_URL, LLM_MODEL_NAME, LLM_API_KEY, LLM_PROVIDER
+
 def init_dspy():
     """
-    Initializes DSPy with the Gemini model.
+    Initializes DSPy with the configured model.
     """
-    api_key = os.environ.get("GOOGLE_API_KEY")
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY not found in environment variables")
+    if not LLM_API_KEY:
+        raise ValueError("LLM_API_KEY not found in environment variables")
 
-    # Configure DSPy to use Gemini
-    # DSPy 2.5+ uses dspy.LM which wraps LiteLLM
-    # Trying gemini-pro as 1.5-flash might have issues in this environment
-    lm = dspy.LM(model="gemini/gemini-1.5-pro-latest", api_key=api_key, temperature=0)
+    # Configure DSPy
+    # We use the generic 'openai/' provider prefix to leverage the standardized API
+    # even if it's Gemini or Ollama on the backend.
+
+    # Construct model string.
+    # For Ollama/OpenAI compatible, we usually prepend 'openai/' so dspy knows to use that client logic.
+    # But if LLM_PROVIDER is specifically gemini using the native client, we might want to keep it.
+    # However, to standardize, we should use the OpenAI compatibility if possible.
+
+    # If the user selected 'ollama', the model name might be 'llama3', so 'openai/llama3'
+    # If 'gemini', model might be 'gemini-1.5-pro', so 'openai/gemini-1.5-pro' pointing to google base_url
+
+    dspy_model_name = f"openai/{LLM_MODEL_NAME}"
+
+    logger.info(f"Initializing DSPy with model={dspy_model_name}, base_url={LLM_API_BASE_URL}")
+
+    lm = dspy.LM(
+        model=dspy_model_name,
+        api_key=LLM_API_KEY,
+        api_base=LLM_API_BASE_URL,  # dspy uses api_base instead of base_url often, or passes kwargs to litellm
+        temperature=0
+    )
     dspy.settings.configure(lm=lm)
-    logger.info("DSPy initialized with Gemini")
+    logger.info("DSPy initialized")
 
     # Load registry
     load_prompt_registry()

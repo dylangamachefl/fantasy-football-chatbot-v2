@@ -13,3 +13,4 @@ langgraph-checkpoint-sqlite
 aiosqlite
 sqlalchemy
 dspy-ai
+langchain-openai>=0.1.0

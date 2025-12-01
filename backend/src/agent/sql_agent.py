@@ -10,12 +10,13 @@ from pydantic import BaseModel, Field
 # --- LangChain Imports ---
 from langchain.agents import create_agent
 from langchain_community.utilities import SQLDatabase
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import SystemMessage
+from src.config.llm_config import LLM_API_BASE_URL, LLM_MODEL_NAME, LLM_API_KEY
 
 # --- SQL Parsing Library ---
 import sqlglot
@@ -150,14 +151,11 @@ _llm = None
 def get_llm():
     global _llm
     if _llm is None:
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not found in environment variables")
-
-        _llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-lite",
+        _llm = ChatOpenAI(
+            model=LLM_MODEL_NAME,
             temperature=0,
-            google_api_key=api_key,
+            api_key=LLM_API_KEY,
+            base_url=LLM_API_BASE_URL,
         )
     return _llm
 
