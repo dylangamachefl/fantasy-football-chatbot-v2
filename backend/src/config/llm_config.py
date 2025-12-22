@@ -13,7 +13,7 @@ def get_env_var(key: str, default: Optional[str] = None) -> str:
 
 # Standardize LLM configuration
 LLM_PROVIDER = get_env_var(
-    "LLM_PROVIDER", "gemini"
+    "LLM_PROVIDER", "ollama"
 )  # Options: "gemini", "ollama", "openai"
 
 # API Base URLs
