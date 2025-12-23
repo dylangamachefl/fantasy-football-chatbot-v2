@@ -29,12 +29,15 @@ class SQLGeneratorSignature(dspy.Signature):
     """
     question = dspy.InputField(desc="The user's specific question")
     db_schema = dspy.InputField(desc="The database schema with table and column details")
+    previous_sql = dspy.InputField(desc="The previously generated SQL query that failed", optional=True)
+    error_message = dspy.InputField(desc="The error message returned from the database", optional=True)
     sql_query = dspy.OutputField(desc="The executable SQLite query")
     thought = dspy.OutputField(desc="Brief logic for the query")
 
 class ResponderSignature(dspy.Signature):
     """
     Answer the user's question based on the database results.
+    The data_context includes the column headers to understand the meaning of the values.
     """
     history = dspy.InputField(desc="Conversation history including the user question")
     data_context = dspy.InputField(desc="The data returned from the database query")

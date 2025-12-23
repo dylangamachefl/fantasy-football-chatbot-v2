@@ -118,7 +118,15 @@ async def stream_generator(query: str, thread_id: str) -> AsyncGenerator[str, No
     try:
         # Use astream_events to get granular updates
         async for event in agent_app.astream_events(
-            {"messages": [input_message], "input": query},
+            {
+                "messages": [input_message],
+                "raw_input": query,
+                "enhanced_input": "",
+                "sql_query": "",
+                "sql_result": "",
+                "error": None,
+                "retry_count": 0,
+            },
             config=config,
             version="v1"
         ):

@@ -1,5 +1,3 @@
-# --- START OF FILE state.py ---
-
 from typing import List, Optional, TypedDict, Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.graph import add_messages
@@ -14,7 +12,10 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
     # The raw user input
-    input: str
+    raw_input: str
+
+    # The rewritten query
+    enhanced_input: str
 
     # The list of tables selected by the router node
     selected_tables: Optional[List[str]]
@@ -25,5 +26,14 @@ class AgentState(TypedDict):
     # The detailed, filtered schema provided to the SQL agent
     forced_schema: Optional[str]
 
+    # The generated SQL
+    sql_query: str
+
+    # The raw output from the DB
+    sql_result: str
+
+    # Track execution errors
+    error: Optional[str]
+
     # A simple counter to prevent infinite loops
-    iteration_count: int
+    retry_count: int
