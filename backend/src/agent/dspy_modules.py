@@ -23,8 +23,14 @@ class SQLGeneratorModule(dspy.Module):
         super().__init__()
         self.prog = dspy.ChainOfThought(SQLGeneratorSignature)
 
-    def forward(self, question, db_schema):
-        return self.prog(question=question, db_schema=db_schema)
+    def forward(self, question, db_schema, previous_sql=None, error_message=None):
+        # Convert None to empty strings to ensure DSPy prompt is clean
+        return self.prog(
+            question=question,
+            db_schema=db_schema,
+            previous_sql=previous_sql or "",
+            error_message=error_message or ""
+        )
 
 class ResponderModule(dspy.Module):
     def __init__(self):

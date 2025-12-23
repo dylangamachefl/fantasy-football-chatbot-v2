@@ -5,7 +5,8 @@ import csv
 import json
 import logging
 import requests
-from typing import List
+import re
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 # --- LangChain Imports ---
@@ -15,8 +16,10 @@ from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from src.config.llm_config import LLM_API_BASE_URL, LLM_MODEL_NAME, LLM_API_KEY
+from src.agent.dspy_modules import get_query_enhancer, get_table_router, get_sql_generator, get_responder
+from src.agent.state import AgentState
 
 # --- Setup ---
 logger = logging.getLogger(__name__)
@@ -242,119 +245,188 @@ def get_detailed_schema_info(
     schema_parts.append("\n" + "=" * 50)
     return "\n".join(schema_parts)
 
-
 # =========================================================================
-# --- Agent Creation ---
+# --- Nodes ---
 # =========================================================================
 
-
-def build_sql_agent_graph(forced_schema: str):
+def node_greeting_handler(state: AgentState):
     """
-    Builds a pure LangGraph v1 StateGraph for the SQL Agent.
+    Handles simple greetings without invoking the heavy chain.
     """
-    llm = get_llm()
+    return {"messages": [AIMessage(content="Hello! I'm your Fantasy Football Assistant. Ask me anything about your league history, stats, or matchups!")]}
 
-    tools = [SafeSQLQueryTool()]
-    llm_with_tools = llm.bind_tools(tools)
-
-    system_message_content = f"""You are an expert SQLite data analyst. 
-
-**YOUR GOAL:** 
-Using only the tables and columns provided to you generate a correct SQL query and execute it immediately. Do NOT attempt to answer without executing a query. Do NOT try to use tables or columns that are not listed in the schema.
-
-1. **Follow-up Questions:** When the user sends a message, you MUST look at the **Conversation History** to understand the context. 
-
-**MANDATORY PROCESS:**
-1. **THOUGHT:** Write EXACTLY ONE sentence explaining your logic.
-2. **ACTION:** Call the `sql_db_query` tool.
-3. **CHECK:** 
-   - If the tool returns **DATA**: STOP. Do not talk.
-   - If the tool returns an **ERROR**: **Do Not stop.** Read the error message carefully, fix your SQL logic, and call the tool again.
-
-**NEGATIVE CONSTRAINTS (What NOT to do):**
-- **DO NOT** give up. If you get a syntax error, try a simpler query or check column names.
-- **DO NOT** write "EXECUTE:" or "I will now...".
-- **DO NOT** repeat your plan.
-- **DO NOT** write pseudo-code or explain the query in detail. Just run it.
-- **DO NOT** loop or restate valid owners.
-
-**SQL RECIPES (Use these EXACT patterns):**
-
-**1. HEAD-TO-HEAD RECORDS (e.g., "Dylan vs Dan"):**
-   - **Pattern:** You MUST use `CASE WHEN` on the `winning_owner_id` to count wins.
-   - **Template:**
-     ```sql
-     SELECT 
-       SUM(CASE WHEN winning_owner_id = (SELECT owner_id FROM FantasyOwners_LLM WHERE owner_name = 'OwnerA') THEN 1 ELSE 0 END) AS OwnerA_Wins,
-       SUM(CASE WHEN winning_owner_id = (SELECT owner_id FROM FantasyOwners_LLM WHERE owner_name = 'OwnerB') THEN 1 ELSE 0 END) AS OwnerB_Wins,
-       COUNT(CASE WHEN tie = 1 THEN 1 END) AS Ties
-     FROM HeadToHeadMatchups_LLM
-     WHERE matchup_category = 'Regular Season'
-       AND (
-         (owner1_id = (SELECT owner_id FROM FantasyOwners_LLM WHERE owner_name = 'OwnerA') AND owner2_id = (SELECT owner_id FROM FantasyOwners_LLM WHERE owner_name = 'OwnerB'))
-         OR 
-         (owner1_id = (SELECT owner_id FROM FantasyOwners_LLM WHERE owner_name = 'OwnerB') AND owner2_id = (SELECT owner_id FROM FantasyOwners_LLM WHERE owner_name = 'OwnerA'))
-       );
-     ```
-
-**CRITICAL SQL RULES:**
-1. **Head-to-Head:** NEVER join `FantasyOwners_LLM` to `HeadToHeadMatchups_LLM` with `OR`. Filter directly.
-
-2. **THE "TOP 10" MANDATE (CRITICAL):**
-   - **NEVER use `LIMIT 1` for "most", "winner", "highest", or "best" queries.**
-   - **Reason:** In this specific database, TIES are extremely common. If you use `LIMIT 1`, you will miss tied winners and return INCORRECT results.
-   - **Requirement:** You MUST use **`LIMIT 10`** (or higher) for any ranking query.
-   - *Self-Correction:* If you find yourself writing `LIMIT 1`, STOP. Change it to `LIMIT 10`.
-   - Including extra rows is acceptable; missing tied results is expensive.
+def node_query_enhancer(state: AgentState):
+    """
+    Enhances the user's query using DSPy.
+    """
+    raw_input = state["raw_input"]
+    history = [m.content for m in state["messages"][:-1]] if state.get("messages") else []
     
-3. **Limit Exceptions:**
-   - Use NO LIMIT if the user asks for "all", "list", or "average/sum".
+    enhancer = get_query_enhancer()
+    result = enhancer(history=str(history), user_query=raw_input)
 
-4. **Smart Name Matching:**
-   - Users often use nicknames (e.g. "CMC", "Mahomes", "JJ").
-   - **NEVER** assume an exact match for player names.
-   - **STRATEGY:** Use `LIKE '%Name%'` OR check the `Players_LLM` table first to find the correct `player_name`.
-   - *Example:* `WHERE player_name LIKE '%Mahomes%'` is safer than `= 'Patrick Mahomes'`.
+    # Store in enhanced_input, keep raw_input immutable
+    return {"enhanced_input": result.enhanced_query}
 
-5. **Valid Owners:** The ONLY valid values for `owner_name` are: **{VALID_FANTASY_OWNERS}**.
-    - If the user says "Chris" (and it's in the owner list), assume they mean the Owner, NOT the NFL player "Chris Godwin".
+def node_table_router(state: AgentState):
+    """
+    Selects tables based on the enhanced query using DSPy or LLM.
+    """
+    # Use enhanced input for routing
+    query = state.get("enhanced_input") or state["raw_input"]
 
-6. Always use the owners name to get the owner_id from the `FantasyOwners_LLM` table. The owner_id will be used to join against other tables.
+    # Identify explicit owner mentions for the 'hint'
+    # Use robust token-based matching to avoid false positives (e.g. "Dan" in "Dancing")
+    query_tokens = set(re.findall(r"\b\w+\b", query.lower()))
+    detected_owners = [
+        owner for owner in VALID_FANTASY_OWNERS
+        if owner.lower() in query_tokens
+    ]
+    hint = f"Detected Owners: {', '.join(detected_owners)}" if detected_owners else "No owners detected."
 
-7. **NO RAW IDs:** 
-   - NEVER return an `owner_id`, `team_id`, or `matchup_id` alone. 
-   - **ALWAYS JOIN** to `FantasyOwners_LLM` to get the `owner_name`.
-   - *Bad:* `SELECT away_owner_id...` -> Returns "6".
-   - *Good:* `SELECT T2.owner_name... JOIN FantasyOwners_LLM T2 ON T1.away_owner_id = T2.owner_id`.
+    router = get_table_router()
+    # Core tables
+    core_tables = ["FantasyOwners_LLM", "FantasySeasons_LLM", "FantasyTeams_LLM", "FantasyMatchups_LLM"]
 
-8. **AGGREGATION RULE (The "Who" Rule):**
-   - When calculating `MAX()`, `MIN()`, or `LIMIT 1`, you **MUST** select the `owner_name` or `team_name` column too.
-   - *Bad:* `SELECT MAX(points) FROM...` -> Returns "150". (We don't know who scored it).
-   - *Good:* `SELECT owner_name, points FROM... ORDER BY points DESC LIMIT 1`.
+    # Get available tables description
+    table_desc = load_table_descriptions()
 
-9. **LOGIC DEFINITIONS:**
-   - **"Runner-Up":** Means `final_standing = 2`. (Do NOT use `ORDER BY DESC`).
-   - **"Champion/Winner":** Means `final_standing = 1`.
-   - **"Last Place":** Means `MAX(final_standing)`.
+    result = router(user_query=query, table_descriptions=table_desc, hint=hint)
 
-10. **Head-to-Head:**
-   - Pattern: Use `CASE WHEN winning_owner_id = ...` logic defined previously.
-   - Never use `OR` joins on owners.
+    # Merge core tables with selected specialty tables
+    # Ensure result.selected_tables is a list
+    selected = result.selected_tables
+    if isinstance(selected, str):
+        # Fallback if dspy returns a string representation of list
+        try:
+            import ast
+            selected = ast.literal_eval(selected)
+        except:
+             selected = []
 
-{forced_schema}
-"""
-    sys_msg = SystemMessage(content=system_message_content)
+    final_tables = list(set(core_tables + selected))
 
-    def call_model(state: MessagesState):
-        messages = [sys_msg] + state["messages"]
-        response = llm_with_tools.invoke(messages)
-        return {"messages": [response]}
+    return {
+        "selected_tables": final_tables,
+        "table_selection_reasoning": result.reasoning
+    }
 
-    workflow = StateGraph(MessagesState)
-    workflow.add_node("agent", call_model)
-    workflow.add_node("tools", ToolNode(tools))
-    workflow.add_edge(START, "agent")
-    workflow.add_conditional_edges("agent", tools_condition)
-    workflow.add_edge("tools", "agent")
+def node_schema_builder(state: AgentState):
+    """
+    Builds the detailed schema string for the selected tables.
+    """
+    tables = state["selected_tables"]
+    schema_info = get_detailed_schema_info(tables)
+    return {"forced_schema": schema_info}
 
-    return workflow.compile()
+def node_sql_generator(state: AgentState):
+    """
+    Generates the SQL query using DSPy.
+    Handles retries if an error exists in the state.
+    """
+    query = state.get("enhanced_input") or state["raw_input"]
+    schema = state["forced_schema"]
+
+    # Check for previous error to handle retry
+    previous_error = state.get("error")
+    previous_sql = state.get("sql_query")
+
+    generator = get_sql_generator()
+
+    # If retrying, pass previous context
+    if previous_error:
+        logger.info(f"Retrying SQL generation. Error: {previous_error}")
+        result = generator(
+            question=query,
+            db_schema=schema,
+            previous_sql=previous_sql,
+            error_message=previous_error
+        )
+    else:
+        result = generator(question=query, db_schema=schema)
+
+    return {
+        "sql_query": result.sql_query,
+        # Increment retry count if we are retrying?
+        # Actually retry_count is incremented in the conditional edge logic usually,
+        # or we can increment it here if we know we are in a retry loop.
+        # But for state updates, we just return the new SQL.
+        # We will manage retry_count increment in the graph edge logic or here if we want to be explicit.
+        # Let's just update the query. The edge check decides based on count.
+        # Wait, if I don't increment retry_count, the edge check won't know when to stop.
+        # But the edge check *reads* the count. Something needs to increment it.
+        # If I am here because of a retry, I should probably have incremented it *before* coming here?
+        # Or I increment it here if previous_error is present.
+        "retry_count": state["retry_count"] + 1 if previous_error else state["retry_count"]
+    }
+
+def node_sql_executor(state: AgentState):
+    """
+    Executes the generated SQL using the SafeSQLQueryTool.
+    """
+    query = state["sql_query"]
+
+    # Clean the SQL (remove markdown blocks if present)
+    clean_query = query.strip()
+    if clean_query.startswith("```sql"):
+        clean_query = clean_query[6:]
+    if clean_query.startswith("```"):
+        clean_query = clean_query[3:]
+    if clean_query.endswith("```"):
+        clean_query = clean_query[:-3]
+    clean_query = clean_query.strip()
+
+    tool = SafeSQLQueryTool()
+
+    # Execute
+    result_json = tool._run(clean_query) # tool._run returns JSON string
+
+    try:
+        result_data = json.loads(result_json)
+    except:
+        result_data = {"error": "Failed to parse tool output"}
+
+    if "error" in result_data:
+        return {
+            "error": result_data["error"],
+            "sql_result": "" # Clear result on error
+        }
+    else:
+        # Success
+        return {
+            "sql_result": result_json, # Keep the full JSON string for the responder
+            "error": None # Clear error
+        }
+
+def node_responder(state: AgentState):
+    """
+    Generates the final natural language response.
+    """
+    query = state.get("enhanced_input") or state["raw_input"]
+    history = [m.content for m in state["messages"]] if state.get("messages") else []
+
+    # If we have an error after retries
+    if state.get("error"):
+        return {"messages": [AIMessage(content=f"I encountered an error while trying to answer your question: {state['error']}")], "retry_count": 0}
+
+    data_context = state["sql_result"]
+
+    # If data is empty (but no error), we might want to handle it gracefully
+    # The JSON structure is {"columns": [...], "data": [...]}
+    try:
+        parsed = json.loads(data_context)
+        if not parsed.get("data"):
+            # Empty result
+            # We can let the responder handle "No data found"
+            pass
+    except:
+        pass
+
+    responder = get_responder()
+    result = responder(history=str(history), data_context=data_context)
+
+    return {
+        "messages": [AIMessage(content=result.answer)],
+        "retry_count": 0, # Reset retry count after success
+        "error": None
+    }
