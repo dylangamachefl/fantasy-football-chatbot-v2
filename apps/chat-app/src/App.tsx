@@ -79,6 +79,7 @@ function App() {
         sql: result.sql
       }]);
     } catch (err) {
+      console.error('Query processing error:', err);
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: "I'm sorry, I encountered an error while processing your request."
@@ -127,9 +128,9 @@ function App() {
             </button>
 
             {isInitializing && (
-               <div className="mt-4 p-3 bg-gray-900 rounded border border-gray-700 text-xs font-mono text-green-400 h-32 overflow-y-auto">
-                 {thoughts.map((t, i) => <div key={i}>{t}</div>)}
-               </div>
+              <div className="mt-4 p-3 bg-gray-900 rounded border border-gray-700 text-xs font-mono text-green-400 h-32 overflow-y-auto">
+                {thoughts.map((t, i) => <div key={i}>{t}</div>)}
+              </div>
             )}
           </div>
         </div>
@@ -148,7 +149,7 @@ function App() {
         <div className="flex items-center gap-4 text-sm text-gray-400">
           <span className={cn("flex items-center gap-1.5", status !== 'idle' ? "text-yellow-400" : "text-green-400")}>
             <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-            {status === 'idle' ? 'Ready' : status}
+            <span data-testid="status-indicator">{status === 'idle' ? 'Ready' : status}</span>
           </span>
           <Settings className="w-5 h-5 cursor-pointer hover:text-white" />
         </div>
@@ -160,7 +161,7 @@ function App() {
         <div className="flex-1 flex flex-col relative">
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
             {messages.map((m, i) => (
-              <div key={i} className={cn("flex gap-4 max-w-3xl mx-auto", m.role === 'user' ? "flex-row-reverse" : "")}>
+              <div key={i} className={cn("flex gap-4 max-w-3xl mx-auto", m.role === 'user' ? "flex-row-reverse" : "")} data-testid={`message-${m.role}`}>
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                   m.role === 'user' ? "bg-blue-600" : "bg-emerald-600"
@@ -170,7 +171,7 @@ function App() {
                 <div className={cn(
                   "rounded-2xl p-4 max-w-[80%]",
                   m.role === 'user' ? "bg-blue-600 text-white rounded-tr-none" : "bg-gray-800 border border-gray-700 text-gray-100 rounded-tl-none"
-                )}>
+                )} data-testid={`message-content-${m.role}`}>
                   <p className="whitespace-pre-wrap">{m.content}</p>
 
                   {m.sql && (
@@ -211,7 +212,7 @@ function App() {
             {status !== 'idle' && (
               <div className="max-w-3xl mx-auto w-full">
                 <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 animate-in fade-in slide-in-from-bottom-2">
-                  <div className="flex items-center gap-2 text-sm text-blue-400 font-medium mb-2">
+                  <div className="flex items-center gap-2 text-sm text-blue-400 font-medium mb-2" data-testid="thinking-status">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     {status.charAt(0).toUpperCase() + status.slice(1)}...
                   </div>
@@ -237,6 +238,7 @@ function App() {
                 placeholder="Ask about fantasy stats (e.g., 'Who had the most rushing yards in 2021?')"
                 disabled={status !== 'idle'}
                 className="w-full bg-gray-900 border border-gray-600 rounded-xl py-4 pl-4 pr-12 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50"
+                data-testid="chat-input"
               />
               <button
                 type="submit"

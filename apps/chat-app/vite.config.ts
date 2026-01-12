@@ -12,6 +12,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["@sqlite.org/sqlite-wasm", "@xenova/transformers"],
+    exclude: ["@sqlite.org/sqlite-wasm", "@xenova/transformers", "onnxruntime-web"],
   },
 })

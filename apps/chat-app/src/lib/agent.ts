@@ -3,8 +3,8 @@ import { LangfuseWeb } from 'langfuse';
 
 // Optional: Langfuse for local observability (configured via Suite)
 const langfuse = new LangfuseWeb({
-  publicKey: "pk-lf-...", // Placeholder, set via environment or config
-  baseUrl: "http://localhost:3000",
+  publicKey: import.meta.env.VITE_LANGFUSE_PUBLIC_KEY || "pk-lf-...",
+  baseUrl: import.meta.env.VITE_LANGFUSE_HOST || "http://localhost:3000",
 });
 
 // Types
@@ -25,6 +25,14 @@ const dbWorker = new Worker(new URL('../workers/db.worker.ts', import.meta.url),
 const llmWorker = new Worker(new URL('../workers/llm.worker.ts', import.meta.url), { type: 'module' });
 const ragWorker = new Worker(new URL('../workers/rag.worker.ts', import.meta.url), { type: 'module' });
 
+// Add error listeners to catch worker loading failures
+ragWorker.addEventListener('error', (e) => {
+  console.error('[RAG Worker] Failed to load:', e.message, e);
+});
+ragWorker.addEventListener('messageerror', (e) => {
+  console.error('[RAG Worker] Message error:', e);
+});
+
 // Helper to wrap Worker messaging in Promises
 function workerRequest(worker: Worker, type: string, payload: any = {}, onChunk?: (chunk: string) => void): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -34,7 +42,7 @@ function workerRequest(worker: Worker, type: string, payload: any = {}, onChunk?
       if (e.data.id === id) {
         if (e.data.type === 'CHUNK' && onChunk) {
           onChunk(e.data.payload);
-        } else if (e.data.type === 'GENERATE_SUCCESS' || e.data.type === 'INIT_SUCCESS') {
+        } else if (e.data.type === 'GENERATE_SUCCESS' || e.data.type === 'INIT_SUCCESS' || e.data.type === 'RETRIEVE_SUCCESS' || e.data.type === 'EXEC_SQL_SUCCESS') {
           worker.removeEventListener('message', handler);
           resolve(e.data.payload);
         } else if (e.data.type === 'ERROR') {
@@ -147,17 +155,22 @@ export class Agent {
   }
 
   async processQuery(userQuery: string, history: Message[]) {
+    console.log('[Agent] Starting query processing:', userQuery);
     this.setState({ status: 'thinking', thoughts: [], error: undefined });
 
-    const trace = langfuse.trace({
-      name: "query-pipeline",
-      input: { userQuery, history },
-    });
+    // Note: LangfuseWeb (browser client) doesn't support trace() API like the Node.js version
+    // Tracing is disabled for now - would need to use the browser-specific API
+    // const trace = langfuse.trace({
+    //   name: "query-pipeline",
+    //   input: { userQuery, history },
+    // });
 
     try {
       // 0. Routing / Pre-processing
+      console.log('[Agent] Checking if query is analytical...');
       if (!this.isAnalyticalQuery(userQuery)) {
-        trace.update({ tags: ["conversational"] });
+        console.log('[Agent] Non-analytical query detected, generating direct response');
+        // trace.update({ tags: ["conversational"] });
         this.addThought("Detected non-analytical query. Answering directly...");
         this.setState({ status: 'answering' });
         const answerPrompt = `
@@ -166,19 +179,23 @@ export class Agent {
           If they said hi, say hi back and offer help with stats or matchups.
           If they asked for help, explain that you can answer questions about league history, standings, and player stats.
         `;
+        console.log('[Agent] Generating conversational response...');
         const answer = await workerRequest(llmWorker, 'GENERATE', {
           messages: [{ role: 'user', content: answerPrompt }]
         });
+        console.log('[Agent] Conversational response generated');
 
-        trace.update({ output: answer });
+        // trace.update({ output: answer });
         this.setState({ status: 'idle' });
         return { answer, data: [], sql: "" };
       }
 
       // 0.5 Query Enhancement (Context Resolution)
+      console.log('[Agent] Query is analytical, proceeding with full pipeline');
       let activeQuery = userQuery;
       if (history.length > 0) {
-        const span = trace.span({ name: "query-enhancement" });
+        console.log('[Agent] Enhancing query with conversation context...');
+        // const span = trace.span({ name: "query-enhancement" });
         this.addThought("Resolving context from conversation history: ");
         const historyStr = history.map(m => `${m.role}: ${m.content}`).join('\n');
         const enhancementPrompt = PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES);
@@ -186,19 +203,23 @@ export class Agent {
           messages: [{ role: 'user', content: enhancementPrompt }],
           stream: true
         }, (chunk) => this.addThoughtChunk(chunk));
-        span.end({ output: activeQuery });
+        console.log('[Agent] Query enhanced:', activeQuery);
+        // span.end({ output: activeQuery });
       }
 
       // 1. RAG Retrieval
-      const ragSpan = trace.span({ name: "rag-retrieval" });
+      console.log('[Agent] Starting RAG retrieval...');
+      // const ragSpan = trace.span({ name: "rag-retrieval" });
       this.addThought("Searching for relevant SQLite examples in my knowledge base...");
       const examples = await workerRequest(ragWorker, 'RETRIEVE', { query: activeQuery });
+      console.log('[Agent] RAG retrieval complete, examples:', examples ? 'found' : 'none');
       if (examples) {
         this.addThought("Found similar questions to help guide SQL generation.");
       }
-      ragSpan.end({ output: examples });
+      // ragSpan.end({ output: examples });
 
       // 1.5 Table Routing & Schema Filtering
+      console.log('[Agent] Starting table routing...');
       this.addThought("Identifying relevant database tables for this query...");
 
       const schemaData = JSON.parse(schemaStr);
@@ -207,6 +228,7 @@ export class Agent {
         `Table: ${name}, Description: ${info.description}`
       ).join('\n');
 
+      console.log('[Agent] Calling LLM for table routing...');
       const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
         messages: [{ role: 'user', content: PROMPTS.tableRouter(activeQuery, tableDescriptions) }],
         jsonMode: true
@@ -249,14 +271,17 @@ export class Agent {
       let lastError = "";
       const maxRetries = 3; // Align with backend
 
+      console.log('[Agent] Starting SQL generation loop, max retries:', maxRetries);
       while (retries < maxRetries) {
-        const sqlSpan = trace.span({ name: `sql-generation-attempt-${retries}` });
+        console.log(`[Agent] SQL generation attempt ${retries + 1}/${maxRetries}`);
+        // const sqlSpan = trace.span({ name: `sql-generation-attempt-${retries}` });
         this.setState({ status: 'querying' });
         const attemptMsg = retries > 0 ? ` (Attempt ${retries + 1} - Fixing previous error)` : "";
         this.addThought(`Generating SQL query${attemptMsg}...`);
 
         const prompt = PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examples);
 
+        console.log('[Agent] Calling LLM to generate SQL...');
         sql = await workerRequest(llmWorker, 'GENERATE', {
           messages: [{ role: 'user', content: prompt }]
         });
@@ -265,29 +290,32 @@ export class Agent {
         sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
 
         try {
+          console.log('[Agent] Executing SQL query...');
           this.setState({ status: 'executing' });
           this.addThought("Executing query against the local database...");
           data = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
+          console.log('[Agent] SQL execution complete, rows:', Array.isArray(data) ? data.length : 'error');
 
           if (data && !Array.isArray(data) && (data as any).error) {
             throw new Error((data as any).error);
           }
 
           this.addThought(`Query Successful. Retrieved ${data.length} rows.`);
-          sqlSpan.end({ output: { sql, rowCount: data.length } });
+          // sqlSpan.end({ output: { sql, rowCount: data.length } });
           break;
         } catch (e: any) {
           lastError = e.message || String(e);
           this.addThought(`SQL execution failed: ${lastError}`);
           this.setState({ status: 'reflecting' });
-          sqlSpan.end({ error: lastError });
+          // sqlSpan.end({ error: lastError });
           retries++;
         }
       }
 
       // 3. Final Answer Generation (Streaming)
+      console.log('[Agent] Starting final answer generation...');
       this.setState({ status: 'answering' });
-      const answerSpan = trace.span({ name: "final-answer" });
+      // const answerSpan = trace.span({ name: "final-answer" });
 
       if (data.length === 0 && lastError) {
         this.addThought("Decision: Max retries reached with error. Formulating graceful fallback response: ");
@@ -307,9 +335,10 @@ export class Agent {
         messages: [{ role: 'user', content: answerPrompt }],
         stream: true
       }, (chunk) => this.addThoughtChunk(chunk));
+      console.log('[Agent] Final answer generated');
 
-      answerSpan.end({ output: answer });
-      trace.update({ output: answer });
+      // answerSpan.end({ output: answer });
+      // trace.update({ output: answer });
 
       this.setState({ status: 'idle' });
       return { answer, data, sql };

@@ -15,7 +15,7 @@ self.onmessage = async (e: MessageEvent) => {
         break;
       case 'EXEC_SQL':
         const result = await execSQL(payload.sql);
-        self.postMessage({ type: 'EXEC_SUCCESS', id, payload: result });
+        self.postMessage({ type: 'EXEC_SQL_SUCCESS', id, payload: result });
         break;
       default:
         throw new Error(`Unknown message type: ${type}`);

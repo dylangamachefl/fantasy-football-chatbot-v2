@@ -8,17 +8,16 @@ test.describe('Frontend SPA Verification', () => {
 
   test('should load the app and show the chat interface', async ({ page }) => {
     // Check for a known element, e.g., the chat input or a header
-    // Assuming there's an input for chat
-    const chatInput = page.locator('input[type="text"]');
+    const chatInput = page.locator('[data-testid="chat-input"]');
     await expect(chatInput).toBeVisible();
 
-    // Check that system is ready (Agent.init sets status to idle and adds "System Ready.")
-    // Depending on UI implementation, we might see "System Ready" in the thoughts or logs
-    // Let's assume there is a status indicator or we wait for the input to be enabled
+    // Check that system is ready (Agent.init sets status to Ready)
+    const statusIndicator = page.locator('[data-testid="status-indicator"]');
+    await expect(statusIndicator).toHaveText('Ready', { timeout: 120000 });
   });
 
   test('should execute a simple query', async ({ page }) => {
-    const chatInput = page.locator('input[type="text"]');
+    const chatInput = page.locator('[data-testid="chat-input"]');
     await expect(chatInput).toBeVisible();
 
     await chatInput.fill('Who won the championship in 2022?');
@@ -26,12 +25,9 @@ test.describe('Frontend SPA Verification', () => {
 
     // Wait for response
     // We expect some thought process or a final answer
-    // This is a "smoke test" so we just want to ensure it doesn't crash
-    // and produces *some* output.
-
     // Assuming there is a message list
-    const messages = page.locator('.message');
+    const messages = page.locator('[data-testid^="message-"]');
     // Wait for at least 2 messages (user + assistant)
-    await expect(messages).toHaveCount(2, { timeout: 30000 }); // Give it time to load models
+    await expect(messages).toHaveCount(2, { timeout: 90000 }); // Give it time to load models
   });
 });

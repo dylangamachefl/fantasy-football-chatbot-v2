@@ -58,9 +58,9 @@ def run_frontend_eval():
             page = browser.new_page()
             page.goto(args.url)
             
-            # Wait for app to be ready (Agent.init sets thoughts: ["System Ready."])
-            # Assuming there's a thought/log area or status indicator
-            page.wait_for_selector('text="System Ready."', timeout=60000)
+            # Wait for app to be ready (Agent.init sets status to idle and adds "System Ready.")
+            # We look for the status indicator to show "Ready"
+            page.wait_for_selector('[data-testid="status-indicator"]:has-text("Ready")', timeout=120000)
             
             group = group.sort_values("turn_id")
             
@@ -69,26 +69,25 @@ def run_frontend_eval():
                 ground_truth = row["ground_truth_answer"]
                 
                 # Interact with chat input
-                chat_input = page.locator('input[type="text"]')
+                chat_input = page.locator('[data-testid="chat-input"]')
                 chat_input.fill(question)
                 chat_input.press("Enter")
                 
                 # Wait for thinking process to finish (status returns to idle)
-                # In the app, maybe the input becomes enabled again or status indicator changes
-                # Let's wait for the assistant message to appear
-                # This depends on the exact DOM structure. Assuming .message-assistant
-                messages = page.locator('.message-assistant')
+                # We wait for the new assistant message to appear
+                # This depends on the exact DOM structure. Using data-testid
+                messages = page.locator('[data-testid="message-assistant"]')
                 current_count = messages.count()
                 
                 # Poll for new message
-                timeout = 60 # seconds
+                timeout = 90 # Increased timeout for local LLM
                 start_time = time.time()
                 while messages.count() <= all_results_count_in_this_page(all_results, conv_id):
                     time.sleep(1)
                     if time.time() - start_time > timeout:
                         break
                 
-                predicted_answer = messages.last.inner_text() if messages.count() > 0 else "Timeout/Error"
+                predicted_answer = messages.last.locator('[data-testid="message-content-assistant"]').inner_text() if messages.count() > 0 else "Timeout/Error"
                 
                 all_results.append({
                     "conversation_id": conv_id,
