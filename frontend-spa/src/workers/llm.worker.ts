@@ -44,7 +44,9 @@ async function initLLM(modelId: string) {
     });
   };
 
+  console.log(`[LLM Worker] Initializing engine with model: ${modelId}`);
   engine = await CreateMLCEngine(modelId, { initProgressCallback });
+  console.log(`[LLM Worker] Engine initialized successfully.`);
 }
 
 async function generate(messages: any[], _schema?: any, jsonMode: boolean = false) {

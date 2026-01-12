@@ -45,10 +45,10 @@ export class Agent {
   private setState(update: Partial<AgentState>) {
     this.state = { ...this.state, ...update };
     if (update.thoughts) {
-        // Append thoughts instead of overwrite if array passed?
-        // For simplicity, let's assume the caller passes the full new array or we append here.
-        // Actually, let's just make sure we don't lose old thoughts if we want to keep them.
-        // But for now, simple assignment.
+      // Append thoughts instead of overwrite if array passed?
+      // For simplicity, let's assume the caller passes the full new array or we append here.
+      // Actually, let's just make sure we don't lose old thoughts if we want to keep them.
+      // But for now, simple assignment.
     }
     this.onStateChange(this.state);
   }
@@ -60,47 +60,124 @@ export class Agent {
   async init(modelId?: string) {
     this.setState({ status: 'initializing' });
 
-    // Load Schema
-    const schemaRes = await fetch('/assets/schema.json');
-    schemaStr = JSON.stringify(await schemaRes.json(), null, 2);
+    try {
+      // Load Schema
+      console.log("Loading schema...");
+      const schemaRes = await fetch('/assets/schema.json');
+      if (!schemaRes.ok) {
+        throw new Error(`Failed to fetch schema.json: ${schemaRes.status} ${schemaRes.statusText}`);
+      }
+      const schemaData = await schemaRes.json();
+      schemaStr = JSON.stringify(schemaData, null, 2);
+      console.log("Schema loaded successfully.");
 
-    // Init Workers
-    const p1 = workerRequest(dbWorker, 'INIT_DB');
+      // Init Workers
+      console.log("Initializing database worker...");
+      const p1 = workerRequest(dbWorker, 'INIT_DB');
 
-    // For LLM, we need to handle progress streaming separately
-    const p2 = new Promise<void>((resolve, reject) => {
-       const id = 'init-llm';
-       llmWorker.postMessage({ type: 'INIT_LLM', payload: { modelId }, id });
+      // For LLM, we need to handle progress streaming separately
+      console.log("Initializing LLM worker with model:", modelId);
+      const p2 = new Promise<void>((resolve, reject) => {
+        const id = 'init-llm';
+        llmWorker.postMessage({ type: 'INIT_LLM', payload: { modelId }, id });
 
-       const handler = (e: MessageEvent) => {
-         if (e.data.type === 'PROGRESS') {
-           this.addThought(`Loading Model: ${e.data.payload.text}`);
-         } else if (e.data.type === 'INIT_SUCCESS' && e.data.id === id) {
-           llmWorker.removeEventListener('message', handler);
-           resolve();
-         } else if (e.data.type === 'ERROR' && e.data.id === id) {
-           llmWorker.removeEventListener('message', handler);
-           reject(new Error(e.data.error));
-         }
-       };
-       llmWorker.addEventListener('message', handler);
-    });
+        const handler = (e: MessageEvent) => {
+          if (e.data.type === 'PROGRESS') {
+            this.addThought(`Loading Model: ${e.data.payload.text}`);
+          } else if (e.data.type === 'INIT_SUCCESS' && e.data.id === id) {
+            llmWorker.removeEventListener('message', handler);
+            resolve();
+          } else if (e.data.type === 'ERROR' && e.data.id === id) {
+            llmWorker.removeEventListener('message', handler);
+            reject(new Error(e.data.error));
+          }
+        };
+        llmWorker.addEventListener('message', handler);
+      });
 
-    // Init RAG
-    const p3 = initRAG();
+      // Init RAG
+      const p3 = initRAG();
 
-    await Promise.all([p1, p2, p3]);
-    this.setState({ status: 'idle', thoughts: ['System Ready.'] });
+      await Promise.all([p1, p2, p3]);
+      this.setState({ status: 'idle', thoughts: ['System Ready.'] });
+    } catch (err: any) {
+      console.error("Initialization failed:", err);
+      this.setState({ status: 'error', error: err.message });
+      throw err;
+    }
+  }
+
+  private isAnalyticalQuery(query: string): boolean {
+    const lower = query.toLowerCase().trim();
+    // Simple greetings or very short queries
+    const greetings = ['hi', 'hello', 'hey', 'yo', 'sup', 'help'];
+    if (greetings.includes(lower)) return false;
+
+    // Check for "question words" or analytical keywords
+    const analyticalKeywords = [
+      'who', 'what', 'when', 'where', 'how many', 'stats', 'score',
+      'points', 'win', 'loss', 'standing', 'rank', 'draft', 'matchup',
+      'champion', 'leaderboard', 'best', 'worst', 'most', 'least'
+    ];
+    return analyticalKeywords.some(kw => lower.includes(kw));
   }
 
   async processQuery(userQuery: string, history: Message[]) {
     this.setState({ status: 'thinking', thoughts: [], error: undefined });
 
     try {
+      // 0. Routing / Pre-processing
+      if (!this.isAnalyticalQuery(userQuery)) {
+        // ... (existing greeting logic)
+      }
+
+      // 0.5 Query Enhancement (Context Resolution)
+      let activeQuery = userQuery;
+      if (history.length > 0) {
+        this.addThought("Resolving context from conversation history...");
+        const historyStr = history.map(m => `${m.role}: ${m.content}`).join('\n');
+        const enhancementPrompt = PROMPTS.queryEnhancer(historyStr, userQuery);
+        activeQuery = await workerRequest(llmWorker, 'GENERATE', {
+          messages: [{ role: 'user', content: enhancementPrompt }]
+        });
+        this.addThought(`Enhanced Query: ${activeQuery}`);
+      }
+
       // 1. RAG Retrieval
-      this.addThought("Searching for relevant examples...");
-      const examples = await retrieveExamples(userQuery);
-      this.addThought(`Found examples:\n${examples}`);
+      this.addThought("Searching for relevant SQLite examples in my knowledge base...");
+      const examples = await retrieveExamples(activeQuery);
+      if (examples) {
+        this.addThought("Found similar questions to help guide SQL generation.");
+      }
+
+      // 1.5 Table Routing & Schema Filtering
+      this.addThought("Identifying relevant database tables for this query...");
+      // Get table descriptions from our loaded schema data
+      const schemaData = JSON.parse(schemaStr);
+      const tableDescriptions = schemaData.map((t: any) => `${t.table_name}: ${t.description}`).join('\n');
+
+      const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
+        messages: [{ role: 'user', content: PROMPTS.tableRouter(activeQuery, tableDescriptions) }],
+        jsonMode: true
+      });
+
+      let selectedTables: string[] = [];
+      try {
+        const parsed = typeof routerOutput === 'string' ? JSON.parse(routerOutput) : routerOutput;
+        selectedTables = parsed.selected_tables || [];
+        this.addThought(`Selected Tables: ${selectedTables.join(', ')}`);
+        this.addThought(`Reasoning: ${parsed.reasoning}`);
+      } catch (e) {
+        console.warn("Failed to parse router output, falling back to full schema", e);
+      }
+
+      // Core tables that should always be included
+      const CORE_TABLES = ["FantasyOwners_LLM", "FantasySeasons_LLM", "FantasyTeams_LLM", "FantasyMatchups_LLM"];
+      const finalTablesSet = new Set([...CORE_TABLES, ...selectedTables]);
+
+      // Filter schema
+      const filteredSchemaData = schemaData.filter((t: any) => finalTablesSet.has(t.table_name));
+      const filteredSchemaStr = JSON.stringify(filteredSchemaData, null, 2);
 
       // 2. SQL Generation Loop (Reflexion)
       let retries = 0;
@@ -111,14 +188,15 @@ export class Agent {
 
       while (retries < maxRetries) {
         this.setState({ status: 'querying' });
-        this.addThought(`Generating SQL (Attempt ${retries + 1})...`);
+        const attemptMsg = retries > 0 ? ` (Attempt ${retries + 1} - Fixing previous error)` : "";
+        this.addThought(`Generating SQL query based on filtered schema${attemptMsg}...`);
 
         // Prompt Construction
-        const prompt = PROMPTS.sqlGenerator(userQuery, schemaStr, sql, lastError, examples);
+        const prompt = PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examples);
 
         // Call LLM
         sql = await workerRequest(llmWorker, 'GENERATE', {
-            messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: prompt }]
         });
 
         // Clean SQL (sometimes models add markdown)
@@ -127,14 +205,15 @@ export class Agent {
 
         try {
           this.setState({ status: 'executing' });
+          this.addThought("Executing query against the local database...");
           data = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
-          this.addThought(`Query Successful. Rows returned: ${data.length}`);
+          this.addThought(`Query Successful. Retrieved ${data.length} rows.`);
 
           // If we get here, success! Break loop.
           break;
         } catch (e: any) {
           lastError = e.message || String(e);
-          this.addThought(`SQL Error: ${lastError}`);
+          this.addThought(`SQL execution failed: ${lastError}`);
           this.setState({ status: 'reflecting' });
           retries++;
         }
@@ -145,6 +224,7 @@ export class Agent {
       }
 
       // 3. Final Answer
+      this.addThought("Analyzing results and formulating final answer...");
       this.setState({ status: 'answering' });
       const dataStr = JSON.stringify(data, null, 2);
       // Truncate if too long to avoid context window issues
@@ -155,7 +235,7 @@ export class Agent {
         messages: [{ role: 'user', content: answerPrompt }]
       });
 
-      this.setState({ status: 'idle' });
+      this.setState({ status: 'idle', thoughts: [...this.state.thoughts, "Task complete."] });
       return { answer, data, sql };
 
     } catch (err: any) {

@@ -5,6 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend-spa</title>
+    <!-- Use CDN for Transformers to bypass Vite dev server intercept -->
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+        window.transformers = { pipeline, env };
+        console.log("[CDN] Transformers.js loaded from jsDelivr");
+    </script>
   </head>
   <body>
     <div id="root"></div>

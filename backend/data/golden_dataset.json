@@ -1,12 +1,12 @@
 [
   {
     "question": "Who won the championship in 2020?",
-    "sql": "SELECT T2.owner_name, T1.season_id FROM FantasySeasons_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T1.final_standing = 1 AND T1.season_id = 2020",
+    "sql": "SELECT T2.owner_name, T1.season_id FROM FantasyTeams_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T1.final_standing = 1 AND T1.season_id = 2020",
     "answer": "Dylan won the championship in 2020."
   },
   {
     "question": "How many points did Chris score in 2021?",
-    "sql": "SELECT T2.owner_name, T1.points_for FROM FantasySeasons_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T2.owner_name = 'Chris' AND T1.season_id = 2021",
+    "sql": "SELECT T2.owner_name, T1.points_for FROM FantasyTeams_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T2.owner_name = 'Chris' AND T1.season_id = 2021",
     "answer": "Chris scored 1500 points in 2021."
   }
 ]

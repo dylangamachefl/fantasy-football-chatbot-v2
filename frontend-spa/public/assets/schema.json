@@ -1,94 +1,188 @@
 [
   {
     "table_name": "FantasyOwners_LLM",
-    "description": "The master list of all fantasy league managers (owners). Use this to find an owner's ID from their name and vice versa. "
+    "description": "The master list of all fantasy league managers (owners). Use this to find an owner's ID from their name and vice versa.",
+    "columns": [
+      {
+        "name": "owner_id",
+        "description": "Unique primary key for an owner."
+      },
+      {
+        "name": "owner_name",
+        "description": "Display name (e.g., 'Dylan', 'Chris')."
+      },
+      {
+        "name": "championships_won",
+        "description": "Total league titles won."
+      },
+      {
+        "name": "total_wins",
+        "description": "Career regular season wins."
+      },
+      {
+        "name": "total_losses",
+        "description": "Career regular season losses."
+      }
+    ]
   },
   {
     "table_name": "FantasySeasons_LLM",
-    "description": "Contains high-level metadata about each season (year). Use this to find the champion of a specific year or to get a season_id from a year."
+    "description": "Metadata about each season (year).",
+    "columns": [
+      {
+        "name": "season_id",
+        "description": "The year (e.g., 2022)."
+      },
+      {
+        "name": "champion_owner_id",
+        "description": "ID of the owner who won that year."
+      }
+    ]
   },
   {
     "table_name": "FantasyTeams_LLM",
-    "description": "Contains one row for each team in a specific season. This is the critical link between an owner, a team, and a season. Contains the final standing for the team for the specific year. Use this table when answering questions about finish positions or final standings."
-  },
-  {
-    "table_name": "FantasyDraftPicks_LLM",
-    "description": "Contains every single pick from every fantasy draft. Use for questions about draft position, who drafted a player, etc."
+    "description": "Teams for each season. Link between owner and season. Use for standings and points.",
+    "columns": [
+      {
+        "name": "fantasy_team_id",
+        "description": "Unique ID for a team in a season."
+      },
+      {
+        "name": "owner_id",
+        "description": "Link to FantasyOwners_LLM."
+      },
+      {
+        "name": "season_id",
+        "description": "Link to FantasySeasons_LLM."
+      },
+      {
+        "name": "fantasy_team_name",
+        "description": "Team name for that year."
+      },
+      {
+        "name": "final_standing",
+        "description": "Rank including playoffs (1 = Champion)."
+      },
+      {
+        "name": "points_for",
+        "description": "Total regular season points scored."
+      },
+      {
+        "name": "wins",
+        "description": "Regular season wins."
+      },
+      {
+        "name": "losses",
+        "description": "Regular season losses."
+      }
+    ]
   },
   {
     "table_name": "FantasyMatchups_LLM",
-    "description": "Contains every head-to-head game played. This is the primary source for weekly scores, wins, and losses between teams. Use this for questions about a specific week or matchup. Includes information about playoff, regular season, and championship matches."
+    "description": "Weekly head-to-head games.",
+    "columns": [
+      {
+        "name": "matchup_id",
+        "description": "Unique ID for the game."
+      },
+      {
+        "name": "season_id",
+        "description": "Year of the game."
+      },
+      {
+        "name": "nfl_week",
+        "description": "Week number (1-18)."
+      },
+      {
+        "name": "home_owner_id",
+        "description": "ID of the home owner."
+      },
+      {
+        "name": "away_owner_id",
+        "description": "ID of the away owner."
+      },
+      {
+        "name": "home_score",
+        "description": "Points scored by home team."
+      },
+      {
+        "name": "away_score",
+        "description": "Points scored by away team."
+      },
+      {
+        "name": "is_a_playoff_matchup",
+        "description": "1 if playoff, 0 if regular season."
+      }
+    ]
   },
   {
     "table_name": "Players_LLM",
-    "description": "The master list of all individual NFL players in the database. Use this table to find a player's ID from their name."
-  },
-  {
-    "table_name": "NFLTeams_LLM",
-    "description": "The master list of all 32 NFL teams. Use this to map an nfl_team_id to its full name (e.g., 'GB' to 'Green Bay Packers')."
-  },
-  {
-    "table_name": "PlayerStats_Season_QB_LLM",
-    "description": "Contains seasonal (full-season) statistics for Quarterback (QB) players. Use for questions about a QB's performance over an entire season."
-  },
-  {
-    "table_name": "PlayerStats_Season_RB_LLM",
-    "description": "Contains seasonal (full-season) statistics for Running Back (RB) players. Use for questions about an RB's performance over an entire season."
-  },
-  {
-    "table_name": "PlayerStats_Season_WR_LLM",
-    "description": "Contains seasonal (full-season) statistics for Wide Receiver (WR) players. Use for questions about a WR's performance over an entire season."
-  },
-  {
-    "table_name": "PlayerStats_Season_TE_LLM",
-    "description": "Contains seasonal (full-season) statistics for Tight End (TE) players. Use for questions about a TE's performance over an entire season."
-  },
-  {
-    "table_name": "PlayerStats_Season_K_LLM",
-    "description": "Contains seasonal (full-season) statistics for Kicker (K) players. Use for questions about a Kicker's performance over an entire season."
-  },
-  {
-    "table_name": "PlayerStats_Season_DST_LLM",
-    "description": "Contains seasonal (full-season) statistics for Defense/Special Teams (DST). Use for questions about a DST's performance over an entire season."
-  },
-  {
-    "table_name": "PlayerStats_Weekly_QB_LLM",
-    "description": "Contains weekly, game-by-game statistics for Quarterback (QB) players. Use for questions about a QB's performance in a single game or week."
-  },
-  {
-    "table_name": "PlayerStats_Weekly_RB_LLM",
-    "description": "Contains weekly, game-by-game statistics for Running Back (RB) players. Use for questions about an RB's performance in a single game or week."
-  },
-  {
-    "table_name": "PlayerStats_Weekly_WR_LLM",
-    "description": "Contains weekly, game-by-game statistics for Wide Receiver (WR) players. Use for questions about a WR's performance in a single game or week."
-  },
-  {
-    "table_name": "PlayerStats_Weekly_TE_LLM",
-    "description": "Contains weekly, game-by-game statistics for Tight End (TE) players. Use for questions about a TE's performance in a single game or week."
-  },
-  {
-    "table_name": "PlayerStats_Weekly_K_LLM",
-    "description": "Contains weekly, game-by-game statistics for Kicker (K) players. Use for questions about a Kicker's performance in a single game or week."
-  },
-  {
-    "table_name": "PlayerStats_Weekly_DST_LLM",
-    "description": "Contains weekly, game-by-game statistics for Defense/Special Teams (DST). Use for questions about a DST's performance in a single game or week."
-  },
-  {
-    "table_name": "DraftAnalysis_Full_LLM",
-    "description": "A comprehensive analysis view combining draft data with player performance. Use this for advanced questions about draft value, steals, and busts."
-  },
-  {
-    "table_name": "HeadToHeadMatchups_LLM",
-    "description": "Provides a detailed, side-by-side view of every head-to-head matchup, including team names, owner names, and scores for both sides. Best for direct win/loss questions between two specific owners."
+    "description": "Master list of NFL players.",
+    "columns": [
+      {
+        "name": "player_id",
+        "description": "Unique ID for the player."
+      },
+      {
+        "name": "player_name",
+        "description": "Full name (e.g., 'Christian McCaffrey')."
+      }
+    ]
   },
   {
     "table_name": "RegularSeasonStandings_LLM",
-    "description": "Provides the final regular season standings for each team in each season. This view EXCLUDES playoff games and is the definitive source for regular season records and points."
+    "description": "Definitive source for regular season records and points.",
+    "columns": [
+      {
+        "name": "season_id",
+        "description": "Year of the standings."
+      },
+      {
+        "name": "owner_name",
+        "description": "Owner's display name."
+      },
+      {
+        "name": "regular_season_wins",
+        "description": "Wins in regular season."
+      },
+      {
+        "name": "regular_season_points_for",
+        "description": "Points scored in regular season."
+      },
+      {
+        "name": "regular_season_finish_position",
+        "description": "Rank (1 = 1st place)."
+      }
+    ]
   },
   {
-    "table_name": "OwnerCareerLeaderboard_LLM",
-    "description": "A summary view that aggregates career statistics for each fantasy owner. Each row represents one owner's entire league history. This is the best table for questions about all-time records and rankings."
+    "table_name": "HeadToHeadMatchups_LLM",
+    "description": "Detailed view of matchups with owner names and scores.",
+    "columns": [
+      {
+        "name": "season_id",
+        "description": "Year of the matchup."
+      },
+      {
+        "name": "owner1_name",
+        "description": "Name of the first owner."
+      },
+      {
+        "name": "owner2_name",
+        "description": "Name of the second owner."
+      },
+      {
+        "name": "owner1_score",
+        "description": "Score of owner 1."
+      },
+      {
+        "name": "owner2_score",
+        "description": "Score of owner 2."
+      },
+      {
+        "name": "winning_owner_id",
+        "description": "ID of the winner."
+      }
+    ]
   }
 ]
