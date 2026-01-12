@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  langfuse-db:
+    image: postgres:16
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=langfuse
+    ports:
+      - "5432:5432"
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    depends_on:
+      - langfuse-db
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=mysecret
+      - SALT=mysalt
+      - DATABASE_URL=postgresql://postgres:postgres@langfuse-db:5432/langfuse
+      - LANGFUSE_INIT_PROJECT_ID=local_project
+      - LANGFUSE_INIT_PROJECT_NAME=Fantasy Football Chatbot
+      - LANGFUSE_INIT_USER_EMAIL=dev@example.com
+      - LANGFUSE_INIT_USER_PASSWORD=password123
+
+volumes:
+  langfuse_db_data:

@@ -24,8 +24,12 @@ self.onmessage = async (e: MessageEvent) => {
         break;
 
       case 'GENERATE':
-        const response = await generate(payload.messages, payload.schema, payload.jsonMode);
-        self.postMessage({ type: 'GENERATE_SUCCESS', id, payload: response });
+        if (payload.stream) {
+          await generateStream(payload.messages, id, payload.jsonMode);
+        } else {
+          const response = await generate(payload.messages, payload.schema, payload.jsonMode);
+          self.postMessage({ type: 'GENERATE_SUCCESS', id, payload: response });
+        }
         break;
 
       default:
@@ -66,4 +70,26 @@ async function generate(messages: any[], _schema?: any, jsonMode: boolean = fals
   });
 
   return output.choices[0].message.content;
+}
+
+async function generateStream(messages: any[], id: string, jsonMode: boolean = false) {
+  if (!engine) throw new Error("Engine not initialized");
+
+  const options: any = { temperature: 0.1 };
+  if (jsonMode) options.response_format = { type: "json_object" };
+
+  const asyncChunkGenerator: any = await engine.chat.completions.create({
+    messages,
+    stream: true,
+    ...options
+  });
+
+  let fullText = "";
+  for await (const chunk of asyncChunkGenerator) {
+    const text = chunk.choices[0]?.delta?.content || "";
+    fullText += text;
+    self.postMessage({ type: 'CHUNK', id, payload: text });
+  }
+
+  self.postMessage({ type: 'GENERATE_SUCCESS', id, payload: fullText });
 }

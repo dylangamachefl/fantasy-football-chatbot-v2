@@ -2,8 +2,13 @@
 
 export const PROMPTS = {
   // Query Enhancer
-  queryEnhancer: (history: string, userQuery: string) => `
-You are a Query Enhancer. Rewrite the user's question to be specific and narratively rich. Resolve pronouns using the conversation history.
+  queryEnhancer: (history: string, userQuery: string, validOwners: string[]) => `
+You are a Query Enhancer for a Fantasy Football database. 
+Rewrite the user's question to be specific and narratively rich. 
+Resolve pronouns using the conversation history.
+
+VALID OWNER NAMES (Only use these names for league members):
+${validOwners.join(', ')}
 
 History:
 ${history}
@@ -11,7 +16,7 @@ ${history}
 User Query:
 ${userQuery}
 
-Respond with ONLY the rewritten query.
+Respond with ONLY the rewritten query. If the user mentions a name close to one of the valid owners, use the canonical name from the list.
 `,
 
   // Table Router
@@ -59,5 +64,19 @@ Data:
 ${dataContext}
 
 Answer:
+`,
+
+  // Format Selector
+  formatSelector: (question: string, data: string) => `
+Analyze the question and the resulting data. Decide the best format for the user:
+- "sentence": Use for single facts or very short answers (e.g. "Who won?" -> "Zach won.")
+- "table": Use for structured lists or comparisons (e.g. "Top 5 points")
+- "list": Use for a simple list of names or items.
+- "no_data": Use if the data is empty or irrelevant.
+
+Question: ${question}
+Data: ${data}
+
+Respond with ONLY the format type.
 `
 };

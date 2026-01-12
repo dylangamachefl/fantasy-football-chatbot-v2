@@ -1,0 +1,188 @@
+[
+  {
+    "table_name": "FantasyOwners_LLM",
+    "description": "The master list of all fantasy league managers (owners). Use this to find an owner's ID from their name and vice versa.",
+    "columns": [
+      {
+        "name": "owner_id",
+        "description": "Unique primary key for an owner."
+      },
+      {
+        "name": "owner_name",
+        "description": "Display name (e.g., 'Dylan', 'Chris')."
+      },
+      {
+        "name": "championships_won",
+        "description": "Total league titles won."
+      },
+      {
+        "name": "total_wins",
+        "description": "Career regular season wins."
+      },
+      {
+        "name": "total_losses",
+        "description": "Career regular season losses."
+      }
+    ]
+  },
+  {
+    "table_name": "FantasySeasons_LLM",
+    "description": "Metadata about each season (year).",
+    "columns": [
+      {
+        "name": "season_id",
+        "description": "The year (e.g., 2022)."
+      },
+      {
+        "name": "champion_owner_id",
+        "description": "ID of the owner who won that year."
+      }
+    ]
+  },
+  {
+    "table_name": "FantasyTeams_LLM",
+    "description": "Teams for each season. Link between owner and season. Use for standings and points.",
+    "columns": [
+      {
+        "name": "fantasy_team_id",
+        "description": "Unique ID for a team in a season."
+      },
+      {
+        "name": "owner_id",
+        "description": "Link to FantasyOwners_LLM."
+      },
+      {
+        "name": "season_id",
+        "description": "Link to FantasySeasons_LLM."
+      },
+      {
+        "name": "fantasy_team_name",
+        "description": "Team name for that year."
+      },
+      {
+        "name": "final_standing",
+        "description": "Rank including playoffs (1 = Champion)."
+      },
+      {
+        "name": "points_for",
+        "description": "Total regular season points scored."
+      },
+      {
+        "name": "wins",
+        "description": "Regular season wins."
+      },
+      {
+        "name": "losses",
+        "description": "Regular season losses."
+      }
+    ]
+  },
+  {
+    "table_name": "FantasyMatchups_LLM",
+    "description": "Weekly head-to-head games.",
+    "columns": [
+      {
+        "name": "matchup_id",
+        "description": "Unique ID for the game."
+      },
+      {
+        "name": "season_id",
+        "description": "Year of the game."
+      },
+      {
+        "name": "nfl_week",
+        "description": "Week number (1-18)."
+      },
+      {
+        "name": "home_owner_id",
+        "description": "ID of the home owner."
+      },
+      {
+        "name": "away_owner_id",
+        "description": "ID of the away owner."
+      },
+      {
+        "name": "home_score",
+        "description": "Points scored by home team."
+      },
+      {
+        "name": "away_score",
+        "description": "Points scored by away team."
+      },
+      {
+        "name": "is_a_playoff_matchup",
+        "description": "1 if playoff, 0 if regular season."
+      }
+    ]
+  },
+  {
+    "table_name": "Players_LLM",
+    "description": "Master list of NFL players.",
+    "columns": [
+      {
+        "name": "player_id",
+        "description": "Unique ID for the player."
+      },
+      {
+        "name": "player_name",
+        "description": "Full name (e.g., 'Christian McCaffrey')."
+      }
+    ]
+  },
+  {
+    "table_name": "RegularSeasonStandings_LLM",
+    "description": "Definitive source for regular season records and points.",
+    "columns": [
+      {
+        "name": "season_id",
+        "description": "Year of the standings."
+      },
+      {
+        "name": "owner_name",
+        "description": "Owner's display name."
+      },
+      {
+        "name": "regular_season_wins",
+        "description": "Wins in regular season."
+      },
+      {
+        "name": "regular_season_points_for",
+        "description": "Points scored in regular season."
+      },
+      {
+        "name": "regular_season_finish_position",
+        "description": "Rank (1 = 1st place)."
+      }
+    ]
+  },
+  {
+    "table_name": "HeadToHeadMatchups_LLM",
+    "description": "Detailed view of matchups with owner names and scores.",
+    "columns": [
+      {
+        "name": "season_id",
+        "description": "Year of the matchup."
+      },
+      {
+        "name": "owner1_name",
+        "description": "Name of the first owner."
+      },
+      {
+        "name": "owner2_name",
+        "description": "Name of the second owner."
+      },
+      {
+        "name": "owner1_score",
+        "description": "Score of owner 1."
+      },
+      {
+        "name": "owner2_score",
+        "description": "Score of owner 2."
+      },
+      {
+        "name": "winning_owner_id",
+        "description": "ID of the winner."
+      }
+    ]
+  }
+]
