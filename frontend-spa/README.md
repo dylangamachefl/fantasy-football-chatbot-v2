@@ -1,73 +1,64 @@
-# React + TypeScript + Vite
+# Local SQL Agent (Client-Side SPA)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A fully client-side implementation of the SQL Agent, running entirely in the browser using WebAssembly and WebGPU. **Zero server-side compute required.**
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Local LLM Inference**: Uses [WebLLM](https://webllm.mlc.ai/) (powered by WebGPU) to run `Qwen 2.5 (1.5B)` or `Phi 3.5` directly in the browser.
+- **In-Browser Database**: Uses [SQLite WASM](https://sqlite.org/wasm) with Origin Private File System (OPFS) for high-performance, persistent SQL execution.
+- **RAG System**: Uses [Transformers.js](https://huggingface.co/docs/transformers.js/) for client-side embedding generation and retrieval.
+- **Agentic Workflow**: Implements a Reflexion loop (Generate -> Execute -> Error -> Retry) running in a Web Worker to keep the UI responsive.
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Browser**: Google Chrome, Edge, or any browser with **WebGPU** support.
+- **GPU**: A dedicated GPU is recommended, but modern integrated GPUs (e.g., Apple M-series) work well.
+- **Node.js**: v18+ for building.
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Navigate to the `frontend-spa` directory:
+   ```bash
+   cd frontend-spa
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Running Locally
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Open your browser to the URL shown (usually `http://localhost:5173`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+   > **Note**: The first time you load the model, it will download ~1-2GB of weights to your browser cache. Subsequent loads will be much faster.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Build for Production
+
+1. Build the assets:
+   ```bash
+   npm run build
+   ```
+
+2. Preview the build:
+   ```bash
+   npm run preview
+   ```
+
+## Architecture
+
+- **`src/workers/llm.worker.ts`**: Handles the heavy lifting of the LLM inference in a separate thread to avoid freezing the UI.
+- **`src/workers/db.worker.ts`**: Manages the SQLite database instance and executes queries.
+- **`src/lib/agent.ts`**: Orchestrates the communication between the UI, the LLM worker, and the DB worker.
+- **Assets**: Database (`llm_fantasy_data.db`) and schema files are loaded from `public/assets/` into the browser environment on startup.
+
+## Troubleshooting
+
+- **"WebGPU is not supported"**: Ensure you are using a compatible browser (Chrome/Edge) and that hardware acceleration is enabled.
+- **Model Download Failures**: Ensure you have a stable internet connection for the initial download.
+- **SharedArrayBuffer Errors**: This app requires specific security headers (`Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy`), which are configured in `vite.config.ts`. If deploying to a static host (like Vercel/Netlify), ensure these headers are set in the host configuration.
