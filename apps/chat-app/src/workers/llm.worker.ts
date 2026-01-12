@@ -48,9 +48,26 @@ async function initLLM(modelId: string) {
     });
   };
 
-  console.log(`[LLM Worker] Initializing engine with model: ${modelId}`);
-  engine = await CreateMLCEngine(modelId, { initProgressCallback });
-  console.log(`[LLM Worker] Engine initialized successfully.`);
+  try {
+    console.log(`[LLM Worker] Initializing engine with model: ${modelId}`);
+    engine = await CreateMLCEngine(modelId, { initProgressCallback });
+    console.log(`[LLM Worker] Engine initialized successfully.`);
+  } catch (error: any) {
+    console.error(`[LLM Worker] Failed to load primary model ${modelId}: ${error.message}`);
+
+    if (modelId !== MODELS.robust) {
+      console.log(`[LLM Worker] Attempting fallback to robust model: ${MODELS.robust}`);
+      try {
+        engine = await CreateMLCEngine(MODELS.robust, { initProgressCallback });
+        console.log(`[LLM Worker] Fallback engine initialized successfully.`);
+      } catch (fallbackError: any) {
+        console.error(`[LLM Worker] Fallback model also failed: ${fallbackError.message}`);
+        throw fallbackError;
+      }
+    } else {
+      throw error;
+    }
+  }
 }
 
 async function generate(messages: any[], _schema?: any, jsonMode: boolean = false) {

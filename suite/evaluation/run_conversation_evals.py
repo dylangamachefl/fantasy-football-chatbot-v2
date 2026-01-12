@@ -9,11 +9,12 @@ from datetime import datetime
 from tqdm import tqdm
 from dotenv import load_dotenv
 from langchain_classic.evaluation.qa import QAEvalChain
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langfuse.langchain import CallbackHandler
+import eval_config
 
 # --- IMPORT WORKFLOW ---
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
@@ -177,15 +178,13 @@ def main():
 
     logger.info("Grading results...")
 
-    class JudgeRateLimiter(BaseCallbackHandler):
-        def on_llm_start(self, *args, **kwargs):
-            throttle()
-        def on_chat_model_start(self, *args, **kwargs):
-            throttle()
-
-    # FIX: Attach the callback to the Judge LLM
-    eval_llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite", temperature=0, callbacks=[JudgeRateLimiter()]
+    from langchain_ollama import ChatOllama
+    
+    # Use Ollama for local grading (configured via eval_config.py)
+    eval_llm = ChatOllama(
+        model=eval_config.JUDGE_MODEL,
+        base_url=eval_config.OLLAMA_BASE_URL,
+        temperature=eval_config.JUDGE_TEMPERATURE
     )
     eval_chain = QAEvalChain.from_llm(llm=eval_llm)
 

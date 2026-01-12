@@ -200,9 +200,12 @@ export class Agent {
 
       // 1.5 Table Routing & Schema Filtering
       this.addThought("Identifying relevant database tables for this query...");
-      // Get table descriptions from our loaded schema data
+
       const schemaData = JSON.parse(schemaStr);
-      const tableDescriptions = schemaData.map((t: any) => `${t.table_name}: ${t.description}`).join('\n');
+      // Backend format for routing: "Table: name, Description: desc"
+      const tableDescriptions = Object.entries(schemaData).map(([name, info]: [string, any]) =>
+        `Table: ${name}, Description: ${info.description}`
+      ).join('\n');
 
       const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
         messages: [{ role: 'user', content: PROMPTS.tableRouter(activeQuery, tableDescriptions) }],
@@ -223,38 +226,47 @@ export class Agent {
       const CORE_TABLES = ["FantasyOwners_LLM", "FantasySeasons_LLM", "FantasyTeams_LLM", "FantasyMatchups_LLM"];
       const finalTablesSet = new Set([...CORE_TABLES, ...selectedTables]);
 
-      // Filter schema
-      const filteredSchemaData = schemaData.filter((t: any) => finalTablesSet.has(t.table_name));
-      const filteredSchemaStr = JSON.stringify(filteredSchemaData, null, 2);
+      // Filter schema and build the rich descriptive string like the backend
+      const filteredSchemaParts = ["==================================================", "DATABASE SCHEMA", "=================================================="];
+
+      for (const tableName of Array.from(finalTablesSet)) {
+        if (schemaData[tableName]) {
+          filteredSchemaParts.push(`\n📄 TABLE: ${tableName}`);
+          filteredSchemaParts.push(`   Description: ${schemaData[tableName].description}`);
+          filteredSchemaParts.push(`   Columns:`);
+          schemaData[tableName].columns.forEach((col: any) => {
+            filteredSchemaParts.push(`  - ${col.name}: ${col.description}`);
+          });
+        }
+      }
+      filteredSchemaParts.push("\n==================================================");
+      const filteredSchemaStr = filteredSchemaParts.join('\n');
 
       // 2. SQL Generation Loop (Reflexion)
       let retries = 0;
       let sql = "";
       let data: any[] = [];
       let lastError = "";
-      const maxRetries = 2; // Defensive: don't loop forever
+      const maxRetries = 3; // Align with backend
 
       while (retries < maxRetries) {
         const sqlSpan = trace.span({ name: `sql-generation-attempt-${retries}` });
         this.setState({ status: 'querying' });
         const attemptMsg = retries > 0 ? ` (Attempt ${retries + 1} - Fixing previous error)` : "";
-        this.addThought(`Generating SQL query based on filtered schema${attemptMsg}...`);
+        this.addThought(`Generating SQL query${attemptMsg}...`);
 
-        // Prompt Construction
         const prompt = PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examples);
 
-        // Call LLM
         sql = await workerRequest(llmWorker, 'GENERATE', {
           messages: [{ role: 'user', content: prompt }]
         });
 
-        // Clean SQL (sometimes models add markdown)
+        // Clean SQL
         sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
 
         try {
           this.setState({ status: 'executing' });
           this.addThought("Executing query against the local database...");
-          // Correct command is 'EXEC_SQL'
           data = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
 
           if (data && !Array.isArray(data) && (data as any).error) {
@@ -263,7 +275,6 @@ export class Agent {
 
           this.addThought(`Query Successful. Retrieved ${data.length} rows.`);
           sqlSpan.end({ output: { sql, rowCount: data.length } });
-          // If we get here, success! Break loop.
           break;
         } catch (e: any) {
           lastError = e.message || String(e);
@@ -278,7 +289,6 @@ export class Agent {
       this.setState({ status: 'answering' });
       const answerSpan = trace.span({ name: "final-answer" });
 
-      // Defensive: If no data after retries, explain simply
       if (data.length === 0 && lastError) {
         this.addThought("Decision: Max retries reached with error. Formulating graceful fallback response: ");
       } else if (data.length === 0) {
@@ -289,7 +299,7 @@ export class Agent {
 
       const historyStrAnswer = history.map(m => `${m.role}: ${m.content}`).join('\n');
       const dataStr = JSON.stringify(data);
-      const truncatedData = dataStr.length > 3000 ? dataStr.substring(0, 3000) + "...(truncated)" : dataStr;
+      const truncatedData = dataStr.length > 5000 ? dataStr.substring(0, 5000) + "...(truncated)" : dataStr;
 
       const answerPrompt = PROMPTS.responder(historyStrAnswer, truncatedData);
 

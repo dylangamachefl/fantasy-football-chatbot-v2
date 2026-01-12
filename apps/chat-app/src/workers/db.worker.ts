@@ -37,30 +37,38 @@ async function initDB() {
       printErr: console.error,
     });
 
-    // Check if OPFS is supported by checking if OpfsDb is available
     if (!sqlite3.oo1.OpfsDb) {
       throw new Error('OPFS is not available in this browser environment.');
     }
 
-    log('Fetching database from assets...');
-    const response = await fetch('/assets/llm_fantasy_data.db');
-    const arrayBuffer = await response.arrayBuffer();
-
-    // We need to write the file to OPFS before opening it with OpfsDb
-    // The standard way in sqlite-wasm is using the installOpfsSAHPOOL or just direct file writing if supported.
-    // However, sqlite3.oo1.OpfsDb.importDb is the utility for this.
-    // Note: The types might not reflect this extension method, so we cast to any.
-
     const opfsDbUtil = sqlite3.oo1.OpfsDb as any;
-    if (opfsDbUtil.importDb) {
+
+    // Check if the database already exists in OPFS
+    let dbExists = false;
+    try {
+      const opfsRoot = await navigator.storage.getDirectory();
+      await opfsRoot.getFileHandle(DB_NAME);
+      dbExists = true;
+      log('Database found in OPFS.');
+    } catch (e) {
+      log('Database not found in OPFS, will fetch from assets.');
+    }
+
+    if (!dbExists) {
+      log('Fetching database from assets...');
+      const response = await fetch('/assets/llm_fantasy_data.db');
+      const arrayBuffer = await response.arrayBuffer();
+
+      if (opfsDbUtil.importDb) {
         await opfsDbUtil.importDb(DB_NAME, arrayBuffer);
-    } else {
+        log('Database imported into OPFS.');
+      } else {
         throw new Error("importDb not supported in this version of sqlite-wasm");
+      }
     }
 
     db = new sqlite3.oo1.OpfsDb(DB_NAME);
-
-    log('Database loaded successfully into OPFS.');
+    log('Database loaded successfully.');
   } catch (err) {
     console.error('Failed to initialize DB', err);
     throw err;
