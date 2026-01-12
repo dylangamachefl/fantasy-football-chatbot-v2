@@ -1,5 +1,4 @@
 import { PROMPTS } from './prompts';
-import { initRAG, retrieveExamples } from './rag';
 import { LangfuseWeb } from 'langfuse';
 
 // Optional: Langfuse for local observability (configured via Suite)
@@ -24,6 +23,7 @@ const VALID_OWNER_NAMES = [
 // Worker Interfaces
 const dbWorker = new Worker(new URL('../workers/db.worker.ts', import.meta.url), { type: 'module' });
 const llmWorker = new Worker(new URL('../workers/llm.worker.ts', import.meta.url), { type: 'module' });
+const ragWorker = new Worker(new URL('../workers/rag.worker.ts', import.meta.url), { type: 'module' });
 
 // Helper to wrap Worker messaging in Promises
 function workerRequest(worker: Worker, type: string, payload: any = {}, onChunk?: (chunk: string) => void): Promise<any> {
@@ -119,7 +119,8 @@ export class Agent {
       });
 
       // Init RAG
-      const p3 = initRAG();
+      console.log("Initializing RAG worker...");
+      const p3 = workerRequest(ragWorker, 'INIT_RAG');
 
       await Promise.all([p1, p2, p3]);
       this.setState({ status: 'idle', thoughts: ['System Ready.'] });
@@ -191,7 +192,7 @@ export class Agent {
       // 1. RAG Retrieval
       const ragSpan = trace.span({ name: "rag-retrieval" });
       this.addThought("Searching for relevant SQLite examples in my knowledge base...");
-      const examples = await retrieveExamples(activeQuery);
+      const examples = await workerRequest(ragWorker, 'RETRIEVE', { query: activeQuery });
       if (examples) {
         this.addThought("Found similar questions to help guide SQL generation.");
       }
@@ -253,8 +254,8 @@ export class Agent {
         try {
           this.setState({ status: 'executing' });
           this.addThought("Executing query against the local database...");
-          // Correct command is 'QUERY' not 'EXEC_SQL' or something else
-          data = await workerRequest(dbWorker, 'QUERY', { sql });
+          // Correct command is 'EXEC_SQL'
+          data = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
 
           if (data && !Array.isArray(data) && (data as any).error) {
             throw new Error((data as any).error);

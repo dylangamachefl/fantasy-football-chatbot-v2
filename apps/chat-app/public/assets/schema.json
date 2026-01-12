@@ -49,11 +49,11 @@
       },
       {
         "name": "owner_id",
-        "description": "Link to FantasyOwners_LLM."
+        "description": "Link to FantasyOwners_LLM. This is a Foreign Key to FantasyOwners_LLM.owner_id."
       },
       {
         "name": "season_id",
-        "description": "Link to FantasySeasons_LLM."
+        "description": "Link to FantasySeasons_LLM. This is a Foreign Key to FantasySeasons_LLM.season_id."
       },
       {
         "name": "fantasy_team_name",

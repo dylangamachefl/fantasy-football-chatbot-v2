@@ -23,7 +23,7 @@ Respond with ONLY the rewritten query. If the user mentions a name close to one 
   tableRouter: (userQuery: string, tableDescriptions: string) => `
 Identify the database tables required to answer the user's question.
 Select specialty tables if the question implies them.
-Core tables (FantasyOwners_LLM, FantasySeasons_LLM, FantasyTeams_LLM, FantasyMatchups_LLM) are usually relevant, but focus on detecting specific needs.
+Core tables (FantasyOwners_LLM, FantasySeasons_LLM, FantasyTeams_LLM, FantasyMatchups_LLM) are always included, so focus on specialty ones.
 
 Table Descriptions:
 ${tableDescriptions}

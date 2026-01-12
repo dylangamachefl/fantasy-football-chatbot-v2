@@ -24,3 +24,5 @@ backend/src/**/__pycache__/
 secrets.toml
 
 # Evaluation results
+node_modules/
+node_modules/
