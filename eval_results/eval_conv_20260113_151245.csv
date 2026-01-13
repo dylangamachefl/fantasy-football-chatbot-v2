@@ -1,0 +1,4 @@
+conversation_id,turn_id,question,enhanced_query,ground_truth,prediction,sql_executed,selected_tables,grade
+convo_01,1,Did Jack win any championships?,N/A,"Yes, 1.",Error,N/A,N/A,ERROR
+convo_01,2,What year was his most recent one?,N/A,2016,Error,N/A,N/A,ERROR
+convo_01,3,Who did he play in that championship game and what was the score?,N/A,He played Nick and the final score was 192.7-133.9.,Error,N/A,N/A,ERROR
