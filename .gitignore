@@ -26,3 +26,6 @@ secrets.toml
 # Evaluation results
 node_modules/
 node_modules/
+
+EXPERTS.MD
+TO-DO.md
