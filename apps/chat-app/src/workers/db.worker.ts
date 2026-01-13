@@ -1,6 +1,6 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 
-const DB_NAME = 'llm_fantasy_data.db';
+const DB_NAME = 'fantasy_football_wide.db';
 let db: any = null;
 
 // Worker message handling
@@ -56,7 +56,7 @@ async function initDB() {
 
     if (!dbExists) {
       log('Fetching database from assets...');
-      const response = await fetch('/assets/llm_fantasy_data.db');
+      const response = await fetch('/assets/fantasy_football_wide.db');
       const arrayBuffer = await response.arrayBuffer();
 
       if (opfsDbUtil.importDb) {

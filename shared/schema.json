@@ -1,188 +1,114 @@
-[
-  {
-    "table_name": "FantasyOwners_LLM",
-    "description": "The master list of all fantasy league managers (owners). Use this to find an owner's ID from their name and vice versa.",
-    "columns": [
-      {
-        "name": "owner_id",
-        "description": "Unique primary key for an owner."
-      },
-      {
-        "name": "owner_name",
-        "description": "Display name (e.g., 'Dylan', 'Chris')."
-      },
-      {
-        "name": "championships_won",
-        "description": "Total league titles won."
-      },
-      {
-        "name": "total_wins",
-        "description": "Career regular season wins."
-      },
-      {
-        "name": "total_losses",
-        "description": "Career regular season losses."
+{
+  "database_name": "Fantasy_Football_Wide_Table_Optimized",
+  "tables": [
+    {
+      "table_name": "Fact_Player_Performance_Weekly",
+      "description": "Primary fact table for weekly player stats and ownership. Use for questions about weekly scores, benching vs starting, and specific game stats.",
+      "columns": {
+        "season_id": "The unique primary key for a fantasy season, representing the calendar year.",
+        "game_week": "The week of the NFL season for this stat line.",
+        "player_name": "The full name of the NFL player.",
+        "player_position": "The position of the player.",
+        "owner_name": "The display name of the fantasy owner.",
+        "fantasy_team_name": "The name of the fantasy team for that season.",
+        "is_starting": "Indicates if the player was in a starting lineup position.",
+        "total_fantasy_points": "The player's total fantasy points for this specific week.",
+        "pass_yds": "Total passing yards for the week.",
+        "pass_tds": "Total passing touchdowns for the week.",
+        "rush_yds": "Total rushing yards for the week.",
+        "rush_tds": "Total rushing touchdowns for the week.",
+        "rec_yds": "Total receiving yards for the week.",
+        "rec_tds": "Total receiving touchdowns for the week."
       }
-    ]
-  },
-  {
-    "table_name": "FantasySeasons_LLM",
-    "description": "Metadata about each season (year).",
-    "columns": [
-      {
-        "name": "season_id",
-        "description": "The year (e.g., 2022)."
-      },
-      {
-        "name": "champion_owner_id",
-        "description": "ID of the owner who won that year."
+    },
+    {
+      "table_name": "Fact_Player_Season_Stat_Leaders",
+      "description": "Seasonal totals and rankings for all players across all positions.",
+      "columns": {
+        "season_id": "The season year (e.g., 2022).",
+        "player_name": "The full name of the player.",
+        "player_position": "The position of the player.",
+        "games_played": "Number of games played in that season.",
+        "total_fantasy_points": "The player's total fantasy points for the entire season.",
+        "season_rank": "The player's final rank among all players at their position for the season."
       }
-    ]
-  },
-  {
-    "table_name": "FantasyTeams_LLM",
-    "description": "Teams for each season. Link between owner and season. Use for standings and points.",
-    "columns": [
-      {
-        "name": "fantasy_team_id",
-        "description": "Unique ID for a team in a season."
-      },
-      {
-        "name": "owner_id",
-        "description": "Link to FantasyOwners_LLM."
-      },
-      {
-        "name": "season_id",
-        "description": "Link to FantasySeasons_LLM."
-      },
-      {
-        "name": "fantasy_team_name",
-        "description": "Team name for that year."
-      },
-      {
-        "name": "final_standing",
-        "description": "Rank including playoffs (1 = Champion)."
-      },
-      {
-        "name": "points_for",
-        "description": "Total regular season points scored."
-      },
-      {
-        "name": "wins",
-        "description": "Regular season wins."
-      },
-      {
-        "name": "losses",
-        "description": "Regular season losses."
+    },
+    {
+      "table_name": "Fact_Matchup_History_Wide",
+      "description": "Symmetric head-to-head game log with two rows per matchup (one for each manager).",
+      "columns": {
+        "season_id": "The season year the matchup took place.",
+        "nfl_week": "The week of the NFL season.",
+        "fantasy_week": "The name or number of the fantasy week.",
+        "matchup_category": "Category: 'Regular Season', 'Postseason (Non-playoff)', or 'Playoff'.",
+        "manager_name": "The name of the primary manager for this row.",
+        "manager_team": "The name of the manager's fantasy team.",
+        "manager_score": "The final fantasy point total for the manager.",
+        "opponent_name": "The name of the opponent manager.",
+        "opponent_team": "The name of the opponent's team.",
+        "opponent_score": "The final fantasy point total for the opponent.",
+        "margin_of_victory": "The absolute point difference between the two scores.",
+        "outcome": "The result for the manager: 'Win', 'Loss', or 'Tie'."
       }
-    ]
-  },
-  {
-    "table_name": "FantasyMatchups_LLM",
-    "description": "Weekly head-to-head games.",
-    "columns": [
-      {
-        "name": "matchup_id",
-        "description": "Unique ID for the game."
-      },
-      {
-        "name": "season_id",
-        "description": "Year of the game."
-      },
-      {
-        "name": "nfl_week",
-        "description": "Week number (1-18)."
-      },
-      {
-        "name": "home_owner_id",
-        "description": "ID of the home owner."
-      },
-      {
-        "name": "away_owner_id",
-        "description": "ID of the away owner."
-      },
-      {
-        "name": "home_score",
-        "description": "Points scored by home team."
-      },
-      {
-        "name": "away_score",
-        "description": "Points scored by away team."
-      },
-      {
-        "name": "is_a_playoff_matchup",
-        "description": "1 if playoff, 0 if regular season."
+    },
+    {
+      "table_name": "Fact_Draft_Performance_Analysis",
+      "description": "Analyzes draft ROI by comparing picks to season ROI metrics.",
+      "columns": {
+        "season_id": "The season year of the draft.",
+        "player_name": "The name of the drafted player.",
+        "owner_name": "The name of the owner who made the pick.",
+        "pick_overall": "The overall pick number in the entire draft.",
+        "draft_value_vs_adp": "Indicates how much of a 'reach' or 'steal' the pick was compared to market ADP.",
+        "total_season_points": "Total fantasy points the player scored during that entire season.",
+        "points_scored_over_expected": "Difference between actual points and expected points from that draft slot.",
+        "finish_rank": "The player's final rank among all players at their position.",
+        "draft_rank": "The rank of the player at their position when drafted.",
+        "rank_diff": "Difference between draft rank and final finish rank."
       }
-    ]
-  },
-  {
-    "table_name": "Players_LLM",
-    "description": "Master list of NFL players.",
-    "columns": [
-      {
-        "name": "player_id",
-        "description": "Unique ID for the player."
-      },
-      {
-        "name": "player_name",
-        "description": "Full name (e.g., 'Christian McCaffrey')."
+    },
+    {
+      "table_name": "Fact_Team_Season_Standings",
+      "description": "Final team records and standings for every season.",
+      "columns": {
+        "season_id": "The season year.",
+        "owner_name": "The name of the team's owner.",
+        "regular_season_wins": "Number of wins during the regular season only.",
+        "final_standing": "The team's final rank including playoffs.",
+        "is_champion": "Indicates if the team won the championship."
       }
-    ]
-  },
-  {
-    "table_name": "RegularSeasonStandings_LLM",
-    "description": "Definitive source for regular season records and points.",
-    "columns": [
-      {
-        "name": "season_id",
-        "description": "Year of the standings."
-      },
-      {
-        "name": "owner_name",
-        "description": "Owner's display name."
-      },
-      {
-        "name": "regular_season_wins",
-        "description": "Wins in regular season."
-      },
-      {
-        "name": "regular_season_points_for",
-        "description": "Points scored in regular season."
-      },
-      {
-        "name": "regular_season_finish_position",
-        "description": "Rank (1 = 1st place)."
+    },
+    {
+      "table_name": "Fact_Manager_Career_Leaderboard",
+      "description": "Aggregated career statistics for every owner.",
+      "columns": {
+        "owner_name": "The display name of the fantasy owner.",
+        "career_wins": "Total wins including regular season and playoffs.",
+        "career_win_percentage": "The owner's career winning percentage.",
+        "championships_won": "The total number of championships won.",
+        "career_points_for": "Total career fantasy points scored.",
+        "career_playoff_rate": "Percentage of seasons where manager qualified for playoffs.",
+        "avg_final_standing": "The owner's average final ranking."
       }
-    ]
-  },
-  {
-    "table_name": "HeadToHeadMatchups_LLM",
-    "description": "Detailed view of matchups with owner names and scores.",
-    "columns": [
-      {
-        "name": "season_id",
-        "description": "Year of the matchup."
-      },
-      {
-        "name": "owner1_name",
-        "description": "Name of the first owner."
-      },
-      {
-        "name": "owner2_name",
-        "description": "Name of the second owner."
-      },
-      {
-        "name": "owner1_score",
-        "description": "Score of owner 1."
-      },
-      {
-        "name": "owner2_score",
-        "description": "Score of owner 2."
-      },
-      {
-        "name": "winning_owner_id",
-        "description": "ID of the winner."
+    },
+    {
+      "table_name": "Fact_Player_Master_Profile",
+      "description": "Career totals and biographical summary for every player.",
+      "columns": {
+        "player_name": "The full name of the player.",
+        "primary_position": "The main position the player has played.",
+        "career_games_played": "Total number of games played over their career.",
+        "career_fantasy_points": "Total career fantasy points scored.",
+        "total_seasons_active": "Number of seasons the player has been active."
       }
-    ]
-  }
-]
+    },
+    {
+      "table_name": "Players_Wide",
+      "description": "Master player identity table to resolve names to unique IDs.",
+      "columns": {
+        "player_id": "The unique primary key for an individual player.",
+        "player_name": "The full name of the player."
+      }
+    }
+  ]
+}

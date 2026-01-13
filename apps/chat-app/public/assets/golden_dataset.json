@@ -1,12 +1,17 @@
 [
   {
-    "question": "Who won the championship in 2020?",
-    "sql": "SELECT T2.owner_name, T1.season_id FROM FantasyTeams_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T1.final_standing = 1 AND T1.season_id = 2020",
-    "answer": "Dylan won the championship in 2020."
+    "question": "Who won the championship in 2022?",
+    "sql": "SELECT owner_name FROM Fact_Team_Season_Standings WHERE season_id = 2022 AND is_champion = 1",
+    "answer": "Dylan won the championship in 2022."
   },
   {
-    "question": "How many points did Chris score in 2021?",
-    "sql": "SELECT T2.owner_name, T1.points_for FROM FantasyTeams_LLM T1 JOIN FantasyOwners_LLM T2 ON T1.owner_id = T2.owner_id WHERE T2.owner_name = 'Chris' AND T1.season_id = 2021",
-    "answer": "Chris scored 1500 points in 2021."
+    "question": "How many wins does Chris have in his career?",
+    "sql": "SELECT career_wins FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Chris'",
+    "answer": "Chris has 45 career wins."
+  },
+  {
+    "question": "What was the score of the matchup between Dylan and Chris in week 5 of 2022?",
+    "sql": "SELECT manager_score, opponent_score FROM Fact_Matchup_History_Wide WHERE season_id = 2022 AND nfl_week = 5 AND manager_name = 'Dylan' AND opponent_name = 'Chris'",
+    "answer": "Dylan scored 125.5 and Chris scored 110.2."
   }
 ]

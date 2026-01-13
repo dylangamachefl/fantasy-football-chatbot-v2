@@ -223,9 +223,11 @@ export class Agent {
       this.addThought("Identifying relevant database tables for this query...");
 
       const schemaData = JSON.parse(schemaStr);
-      // Backend format for routing: "Table: name, Description: desc"
-      const tableDescriptions = Object.entries(schemaData).map(([name, info]: [string, any]) =>
-        `Table: ${name}, Description: ${info.description}`
+      // New format: { "database_name": "...", "tables": [ { "table_name": "...", "description": "...", "columns": { "col": "desc" } } ] }
+      const tables = schemaData.tables || [];
+
+      const tableDescriptions = tables.map((t: any) =>
+        `Table: ${t.table_name}, Description: ${t.description}`
       ).join('\n');
 
       console.log('[Agent] Calling LLM for table routing...');
@@ -241,23 +243,20 @@ export class Agent {
         this.addThought(`Selected Tables: ${selectedTables.join(', ')}`);
         this.addThought(`Reasoning: ${parsed.reasoning}`);
       } catch (e) {
-        console.warn("Failed to parse router output, falling back to full schema", e);
+        console.warn("Failed to parse router output, falling back to all tables", e);
+        selectedTables = tables.map((t: any) => t.table_name);
       }
-
-      // Core tables that should always be included
-      const CORE_TABLES = ["FantasyOwners_LLM", "FantasySeasons_LLM", "FantasyTeams_LLM", "FantasyMatchups_LLM"];
-      const finalTablesSet = new Set([...CORE_TABLES, ...selectedTables]);
 
       // Filter schema and build the rich descriptive string like the backend
       const filteredSchemaParts = ["==================================================", "DATABASE SCHEMA", "=================================================="];
 
-      for (const tableName of Array.from(finalTablesSet)) {
-        if (schemaData[tableName]) {
-          filteredSchemaParts.push(`\n📄 TABLE: ${tableName}`);
-          filteredSchemaParts.push(`   Description: ${schemaData[tableName].description}`);
+      for (const t of tables) {
+        if (selectedTables.includes(t.table_name)) {
+          filteredSchemaParts.push(`\n📄 TABLE: ${t.table_name}`);
+          filteredSchemaParts.push(`   Description: ${t.description}`);
           filteredSchemaParts.push(`   Columns:`);
-          schemaData[tableName].columns.forEach((col: any) => {
-            filteredSchemaParts.push(`  - ${col.name}: ${col.description}`);
+          Object.entries(t.columns).forEach(([colName, colDesc]: [string, any]) => {
+            filteredSchemaParts.push(`  - ${colName}: ${colDesc}`);
           });
         }
       }
