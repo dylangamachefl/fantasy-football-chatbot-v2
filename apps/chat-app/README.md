@@ -6,7 +6,7 @@ This is the user-facing application for the Fantasy Football Chatbot. It is buil
 - **@mlc-ai/web-llm**: Local browser-based inference for Qwen-2.5.
 - **SQLite-WASM**: In-memory database execution for league stats.
 - **Transformers.js**: Local embedding generation for RAG (Retrieval-Augmented Generation).
-- **Langfuse Web SDK**: Optional tracing to the local observability suite.
+- **Langfuse Web SDK**: Unified tracing and observability via Langfuse Cloud.
 
 ## 🛠 Setup
 
@@ -35,7 +35,7 @@ The agent logic is contained in `src/lib/agent.ts`. It follows a multi-stage pip
 4. **Response**: Natural language answer synthesis.
 
 ## 🛠 Observability
-When running in development, the app attempts to send traces to `http://localhost:3000` (the **Observability Suite**). Ensure the Docker stack in `../../suite/observability` is running to view these traces.
+Traces are sent to **Langfuse Cloud** for monitoring performance and adherence. You can view them at [https://cloud.langfuse.com](https://cloud.langfuse.com).
 
 ## 📂 Assets
 The app uses assets (Schema, Golden Dataset, DB) located in `public/assets`. In a production workflow, these are synced from the root `shared/` directory.

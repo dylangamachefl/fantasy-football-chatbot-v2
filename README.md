@@ -14,7 +14,7 @@ fantasy-football-chatbot-v2/
 │       └── public/           # Static assets
 ├── suite/                    # 🛠 The Developer Suite (Local-Only)
 │   ├── evaluation/           # DSPy scripts & "Offline" optimization
-│   └── observability/        # Local Langfuse (Docker) for tracing
+│   └── observability/        # Historical local Langfuse (Docker)
 ├── shared/                   # 📦 Shared Assets
 │   ├── schema.json           # Database context
 │   ├── golden_dataset.json   # SQL examples for RAG
@@ -33,14 +33,11 @@ npm install
 npm run dev
 ```
 
-### 2. Run the Observability Suite
-To trace inputs/outputs and evaluate the pipeline locally, spin up the Langfuse stack:
+### 2. Observability (Langfuse Cloud)
+Traces and evaluation results are now unified on **Langfuse Cloud**. 
 
-```bash
-cd suite/observability
-docker-compose up -d
-```
-*Access Langfuse at http://localhost:3000*
+- **UI**: [https://cloud.langfuse.com](https://cloud.langfuse.com)
+- **Local Suite**: The Docker stack in `suite/observability` is legacy and can be shut down.
 
 ### 3. Evaluate & Optimize
 Use the tools in `suite/evaluation` to run "offline" benchmarks against your golden dataset and optimize the system prompts for better accuracy.

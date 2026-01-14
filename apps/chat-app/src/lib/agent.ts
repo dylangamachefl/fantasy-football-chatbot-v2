@@ -2,8 +2,8 @@ import { PROMPTS } from './prompts';
 import { LangfuseWeb } from 'langfuse';
 
 const langfuse = new LangfuseWeb({
-  publicKey: "pk-lf-local", // Replace with actual public key if needed
-  baseUrl: "http://localhost:3000",
+  publicKey: "pk-lf-05fea78a-def0-4143-847d-f9b06912f701",
+  baseUrl: "https://cloud.langfuse.com",
 });
 
 // Types

@@ -1,4 +1,18 @@
+import os
+from dotenv import load_dotenv
+
 # Evaluation Suite Configuration
+
+# Load from project root .env
+# __file__ is suite/evaluation/eval_config.py
+# Root is two levels up
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
+
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
+LANGFUSE_HOST = os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
+
+# The local LLM model to be used as the judge/evaluator via Ollama
 
 # The local LLM model to be used as the judge/evaluator via Ollama
 JUDGE_MODEL = "llama3"
