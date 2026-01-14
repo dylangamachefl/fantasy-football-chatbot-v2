@@ -1,4 +1,4 @@
-name: Agent Evaluation Pipeline
+name: Agent Evaluation Pipeline (E2E)
 
 on:
   push:
@@ -7,39 +7,72 @@ on:
     branches: [ "main" ]
 
 jobs:
-  eval-and-test:
+  e2e-eval:
     runs-on: ubuntu-latest
-
-    env:
-      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      PYTHONPATH: ${{ github.workspace }} 
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: apps/chat-app/package-lock.json
+
+      - name: Install Node dependencies
+        working-directory: apps/chat-app
+        run: npm install
+
+      - name: Install Playwright Browsers
+        working-directory: apps/chat-app
+        run: npx playwright install --with-deps chromium
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
 
-      - name: Install dependencies
-        
+      - name: Install Python dependencies
+        run: pip install -r suite/evaluation/requirements.txt
+
+      - name: Setup Ollama
+        uses: ollama/setup-ollama@v0
+        with:
+          gpu: false
+
+      - name: Pull Judge Model
+        run: ollama pull llama3
+
+      - name: Build Chat App
+        working-directory: apps/chat-app
+        run: npm run build
+
+      - name: Start App and Run Playwright E2E
         run: |
-          pip install -r backend/requirements.txt
-          pip install -r evals/requirements.txt
+          npm run preview --prefix apps/chat-app &
+          npx playwright test suite/evaluation/verify_frontend.spec.ts
+        env:
+          VITE_LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          VITE_LANGFUSE_BASE_URL: "http://localhost:3000"
 
-      - name: Run Smoke Test Evals
+      - name: Run LLM-as-a-Judge Grading
+        run: python suite/evaluation/judge_results.py --input eval_results/raw_frontend_results.json --output eval_results/final_judged_results.json
 
+      - name: Check Accuracy Threshold
         run: |
-          python evals/run_conversation_evals.py \
-            --file backend/data/smoke_test.csv \
-            --output_dir evals/results \
-            --threshold 90
+          ACCURACY=$(python -c "import json; print(json.load(open('eval_results/final_judged_results.json'))['summary']['accuracy'])")
+          echo "Current Accuracy: $ACCURACY%"
+          if (( $(echo "$ACCURACY < 80" | bc -l) )); then
+            echo "Accuracy threshold not met (80%)"
+            exit 1
+          fi
 
       - name: Archive Eval Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eval-reports
-          path: evals/results/
+          path: eval_results/

@@ -1,153 +1,82 @@
 import json
 import os
 import re
+from eval_config import PROMPTS_TS_PATH
+
+COMPILED_FILE = "suite/evaluation/compiled_sql_generator.json"
 
 def export_prompts():
-    # 1. Load the compiled DSPy JSON
-    compiled_path = os.path.join(os.path.dirname(__file__), '../../original-backend/data/compiled_sql_generator.json')
-    if not os.path.exists(compiled_path):
-        compiled_path = 'suite/original-backend/data/compiled_sql_generator.json'
-
-    if not os.path.exists(compiled_path):
-        print(f"Error: Compiled file not found at {compiled_path}")
+    if not os.path.exists(COMPILED_FILE):
+        print(f"Compiled file {COMPILED_FILE} not found. Run optimization first.")
         return
 
-    with open(compiled_path, 'r') as f:
+    with open(COMPILED_FILE, 'r') as f:
         data = json.load(f)
 
-    # 2. Extract Instruction and Examples
-    try:
-        prog_data = data['prog.predict']
+    # Extract demos (few-shot examples)
+    # The structure depends on how it was saved. 
+    # DSPy 2.5+ usually has it in a predictable nested dict if saved via .save()
+    
+    demos = []
+    # Try different common keys
+    if 'predictor' in data and 'demos' in data['predictor']:
+        demos = data['predictor']['demos']
+    elif 'demos' in data:
+        demos = data['demos']
+    elif 'prog.predict' in data and 'demos' in data['prog.predict']:
+        demos = data['prog.predict']['demos']
+    
+    print(f"Found {len(demos)} demos.")
 
-        # Instruction
-        instructions = prog_data['signature']['instructions']
+    # Format demos as a string for injection
+    examples_str = ""
+    for i, demo in enumerate(demos):
+        if 'question' in demo and 'sql_query' in demo:
+            examples_str += f"Example {i+1}:\n"
+            examples_str += f"Question: {demo['question']}\n"
+            examples_str += f"SQL: {demo['sql_query']}\n\n"
 
-        # Demos (Few-Shot Examples)
-        demos = prog_data.get('demos', [])
+    # Also extract optimized instruction if available
+    instruction = ""
+    if 'predictor' in data and 'signature' in data['predictor']:
+        instruction = data['predictor']['signature'].get('instructions', "")
+    elif 'prog.predict' in data and 'signature' in data['prog.predict']:
+        instruction = data['prog.predict']['signature'].get('instructions', "")
 
-        # Format Demos for Frontend TypeScript
-        # The frontend function signature is:
-        # sqlGenerator: (question, schema, previousSql, errorMessage, examples) => ...
-        # The 'examples' argument is a string injected into the prompt.
-
-        formatted_examples = []
-        for demo in demos:
-            q = demo.get('question', '')
-            sql = demo.get('sql_query', '')
-            thought = demo.get('thought', '') # Not always present if not generated or if using direct prediction
-
-            # We want to format this as a string block similar to how it was likely done manually before.
-            # Example format:
-            # Question: ...
-            # SQL: ...
-
-            ex_str = f"Question:\n{q}\n\nSQL:\n{sql}"
-            formatted_examples.append(ex_str)
-
-        examples_str = "\n\n".join(formatted_examples)
-
-        # Escape backticks and other chars for JS string injection if needed
-        # But here we are injecting into the 'examples' variable passed to the prompt function,
-        # or we are hardcoding it into the PROMPTS object?
-
-        # The current prompts.ts defines `sqlGenerator` which takes an `examples` string argument.
-        # So we don't need to hardcode the examples *inside* the function body if the caller passes them.
-        # However, the Agent in agent.ts calls it with `examples` variable.
-        # Wait, agent.ts loads examples from RAG!
-
-        # "const examples = await workerRequest(ragWorker, 'RETRIEVE', { query: activeQuery });"
-
-        # Ah, so the frontend relies on RAG for examples.
-        # BUT, DSPy optimization might have found "golden" few-shot examples that should ALWAYS be present,
-        # or it optimized the INSTRUCTION itself.
-
-        # If we want to bake in the "bootstrapped" examples as a base, we could append them or replace the instruction.
-        # OR, we update the `instructions` part of the prompt in `prompts.ts`.
-
-        # Let's look at `prompts.ts`:
-        # sqlGenerator: (question: string, schema: string, previousSql: string = "", errorMessage: string = "", examples: string = "") => `
-        # Generate a valid SQLite query to answer the question based on the schema.
-        # Follow specific SQL recipes for Head-to-Head and Rankings.
-        # ...
-
-        # We should update the static INSTRUCTION text in `prompts.ts` with the optimized one from DSPy.
-        # And if DSPy found good few-shot examples, maybe we should prepend them to the dynamic `examples` arg?
-        # Or just rely on the RAG.
-
-        # The instruction is the most important part to sync.
-        # "Generate a valid SQLite query to answer the question based on the schema.\nFollow specific SQL recipes for Head-to-Head and Rankings."
-
-        print(f"Optimized Instruction: {instructions}")
-
-    except KeyError as e:
-        print(f"Error parsing JSON structure: {e}")
+    # Update the TypeScript file
+    if not os.path.exists(PROMPTS_TS_PATH):
+        print(f"Target file {PROMPTS_TS_PATH} not found.")
         return
 
-    # 3. Read prompts.ts
-    prompts_path = os.path.join(os.path.dirname(__file__), '../../apps/chat-app/src/lib/prompts.ts')
-    if not os.path.exists(prompts_path):
-        prompts_path = 'apps/chat-app/src/lib/prompts.ts'
-
-    with open(prompts_path, 'r') as f:
+    with open(PROMPTS_TS_PATH, 'r') as f:
         content = f.read()
 
-    # 4. Replace the sqlGenerator prompt
-    # We will use regex to find the sqlGenerator property and replace the string literal inside.
-    # Pattern: sqlGenerator: \(...\) => `[CONTENT]`
+    # 1. Inject/Replace OPTIMIZED_SQL_EXAMPLES
+    marker_ex = "// --- OPTIMIZED EXAMPLES (DO NOT EDIT MANUALLY) ---"
+    replacement_ex = f"{marker_ex}\nexport const OPTIMIZED_SQL_EXAMPLES = `{examples_str.strip()}`;\n{marker_ex}"
 
-    # We need to be careful with escaping.
-
-    # Construct the new prompt body
-    # We keep the placeholders like ${schema}, ${question}, etc.
-    # The DSPy instruction does NOT contain the placeholders; it's just the text.
-    # So we need to reconstruct the full template string.
-
-    # Original template structure:
-    # ${instructions}
-    #
-    # Schema:
-    # ${schema}
-    #
-    # ${examples ? `Examples:\n${examples}\n` : ''}
-    #
-    # ${previousSql ? ... : ''}
-    #
-    # Question:
-    # ${question}
-    #
-    # Respond with ONLY the SQL query...
-
-    # We will replace the "Generate a valid SQLite ... Rankings." part with `instructions`.
-
-    # Regex to capture the start of the backtick string until "Schema:"
-    # This assumes "Schema:" is the first structural anchor.
-
-    # Actually, simpler: finding the specific hardcoded string and replacing it might be safer if we know it matches.
-    # "Generate a valid SQLite query to answer the question based on the schema.\nFollow specific SQL recipes for Head-to-Head and Rankings."
-
-    old_instruction_snippet = "Generate a valid SQLite query to answer the question based on the schema.\nFollow specific SQL recipes for Head-to-Head and Rankings."
-
-    if old_instruction_snippet in content:
-        new_content = content.replace(old_instruction_snippet, instructions)
-        print("Updated instruction text.")
+    if marker_ex in content:
+        pattern = re.escape(marker_ex) + r".*?" + re.escape(marker_ex)
+        content = re.sub(pattern, replacement_ex, content, flags=re.DOTALL)
     else:
-        print("Warning: Could not find exact instruction string match. Trying regex or manual update.")
-        # Fallback or more robust regex could go here.
-        # For now, let's assume the string match works as I read the file earlier.
-        pass
+        # Prepend to where PROMPTS is exported
+        content = content.replace("export const PROMPTS =", f"{replacement_ex}\n\nexport const PROMPTS =")
 
-    # Note: If DSPy optimized the prompt to be radically different (e.g. removed "Schema:"),
-    # this simple replace won't work. But currently optimize_prompts.py uses existing Signature which implies structure.
-    # The `instructions` field in DSPy Signature docstring maps to the top of the prompt.
+    # 2. Inject/Replace OPTIMIZED_SQL_INSTRUCTION (Optional but good)
+    if instruction:
+        marker_inst = "// --- OPTIMIZED INSTRUCTION (DO NOT EDIT MANUALLY) ---"
+        replacement_inst = f"{marker_inst}\nexport const OPTIMIZED_SQL_INSTRUCTION = `{instruction.strip()}`;\n{marker_inst}"
+        
+        if marker_inst in content:
+            pattern = re.escape(marker_inst) + r".*?" + re.escape(marker_inst)
+            content = re.sub(pattern, replacement_inst, content, flags=re.DOTALL)
+        else:
+            content = content.replace("export const PROMPTS =", f"{replacement_inst}\n\nexport const PROMPTS =")
 
-    # ALSO, we should probably verify if we want to inject the "Golden" examples as defaults.
-    # If `examples` arg is empty, we could fallback to these.
-    # But `agent.ts` passes RAG examples.
+    with open(PROMPTS_TS_PATH, 'w') as f:
+        f.write(content)
 
-    with open(prompts_path, 'w') as f:
-        f.write(new_content)
-
-    print(f"Successfully updated {prompts_path}")
+    print(f"Successfully exported to {PROMPTS_TS_PATH}")
 
 if __name__ == "__main__":
     export_prompts()

@@ -8,5 +8,9 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 JUDGE_TEMPERATURE = 0
 
 # Paths
-DEFAULT_CONV_FILE = "suite/original-backend/data/test_set_conversations.csv"
+SHARED_DIR = "shared"
+GOLDEN_DATASET = f"{SHARED_DIR}/golden_dataset.json"
+SCHEMA_FILE = f"{SHARED_DIR}/schema.json"
+DEFAULT_CONV_FILE = f"{SHARED_DIR}/test_set_conversations.csv"
 OUTPUT_DIR = "eval_results"
+PROMPTS_TS_PATH = "apps/chat-app/src/lib/prompts.ts"
