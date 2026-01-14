@@ -27,6 +27,15 @@ self.onmessage = async (e: MessageEvent) => {
         self.postMessage({ type: 'RETRIEVE_SUCCESS', id, payload: results });
         break;
 
+      case 'RETRIEVE_BATCH':
+        console.log(`[RAG Worker] Starting batch retrieval for ${payload.length} requests`);
+        const batchResults = await Promise.all(payload.map((req: any) =>
+          retrieve(req.query, req.collection, req.k)
+        ));
+        console.log('[RAG Worker] Batch retrieval complete');
+        self.postMessage({ type: 'RETRIEVE_BATCH_SUCCESS', id, payload: batchResults });
+        break;
+
       default:
         throw new Error(`Unknown message type: ${type}`);
     }
@@ -93,6 +102,8 @@ async function loadBank(url: string, type: 'SQL' | 'LORE') {
           item.embedding = Array.from(out.data);
         }));
       }
+    } else {
+      console.log(`[RAG Worker] ${type} bank already contains embeddings. Skipping calculation.`);
     }
     console.log(`[RAG Worker] ${type} bank ready.`);
   } catch (error) {
@@ -103,6 +114,10 @@ async function loadBank(url: string, type: 'SQL' | 'LORE') {
 
 async function retrieve(query: string, collection: 'SQL' | 'LORE', k: number = 3): Promise<any[]> {
   if (!embedder) throw new Error("Embedder not ready");
+  if (!query || query.trim() === '') {
+    console.warn(`[RAG Worker] Empty query received for ${collection}, returning empty results`);
+    return [];
+  }
 
   const bank = collection === 'SQL' ? shotBank : loreBank;
   if (bank.length === 0) return [];

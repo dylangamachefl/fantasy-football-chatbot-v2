@@ -83,13 +83,30 @@ async function execSQL(sql: string) {
   if (!db) throw new Error('Database not initialized');
 
   const results: any[] = [];
+  const MAX_ROWS = 1000;
+  let limitExceeded = false;
+
   db.exec({
     sql,
     rowMode: 'object',
     callback: (row: any) => {
-      results.push(row);
+      if (results.length < MAX_ROWS) {
+        results.push(row);
+      } else {
+        limitExceeded = true;
+      }
     },
   });
+
+  if (limitExceeded) {
+    console.warn(`[DB Worker] SQL query exceeded limit of ${MAX_ROWS} rows. Returning partial results.`);
+    return {
+      rows: results,
+      warning: `Query exceeded maximum limit of ${MAX_ROWS} rows. Results are truncated.`,
+      truncated: true
+    };
+  }
+
   return results;
 }
 

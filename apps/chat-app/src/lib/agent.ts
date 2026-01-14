@@ -41,6 +41,7 @@ function workerRequest(
           'GENERATE_SUCCESS',
           'INIT_SUCCESS',
           'RETRIEVE_SUCCESS',
+          'RETRIEVE_BATCH_SUCCESS',
           'EXEC_SQL_SUCCESS',
           'VALIDATE_SQL_SUCCESS'
         ].includes(e.data.type)) {
@@ -171,7 +172,9 @@ export class Agent {
     try {
       this.addThought(`Retrieving dossier for ${this.identity}...`);
       const sql = `SELECT * FROM Fact_Manager_Career_Leaderboard WHERE owner_name = '${this.identity}'`;
-      const data = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
+      const response = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
+      const data = Array.isArray(response) ? response : response.rows;
+
       if (data && data.length > 0) {
         const bio = data[0];
         this.managerBio = `Manager ${bio.owner_name} has ${bio.career_wins} career wins (${(bio.career_win_percentage * 100).toFixed(1)}% win rate) and ${bio.championships_won} championships. Average finish: ${bio.avg_final_standing}.`;
@@ -194,12 +197,21 @@ export class Agent {
 
   async processQuery(userQuery: string, history: Message[]) {
     this.setState({ status: 'thinking', thoughts: [], error: undefined });
+    const memoryStr = JSON.stringify(this.workingMemory);
 
-    const trace = (langfuse as any).trace({
-      name: 'agent-process-query',
-      input: { userQuery, history, workingMemory: this.workingMemory },
-    });
-    this.lastTraceId = trace.id;
+    // Optional Langfuse tracing
+    let trace: any = null;
+    try {
+      if (typeof (langfuse as any).trace === 'function') {
+        trace = (langfuse as any).trace({
+          name: 'agent-process-query',
+          input: { userQuery, history, workingMemory: this.workingMemory },
+        });
+        this.lastTraceId = trace?.id || null;
+      }
+    } catch (e) {
+      console.warn('[Agent] Langfuse tracing unavailable:', e);
+    }
 
     try {
       // 0. Conversational Check
@@ -207,21 +219,20 @@ export class Agent {
         this.addThought("Detected non-analytical query. Answering directly...");
         this.setState({ status: 'answering' });
         const answerPrompt = `User: "${userQuery}". Respond as a helpful Fantasy Assistant.`;
-        const answerSpan = trace.span({ name: 'conversational-answer', input: answerPrompt });
+        const answerSpan = trace?.span?.({ name: 'conversational-answer', input: answerPrompt });
         const answer = await workerRequest(llmWorker, 'GENERATE', {
           messages: [{ role: 'user', content: answerPrompt }]
         }, undefined, answerSpan);
-        answerSpan.end({ output: answer });
+        answerSpan?.end?.({ output: answer });
 
         this.setState({ status: 'idle' });
-        trace.end({ output: answer, metadata: { thoughts: this.state.thoughts } });
+        trace?.end?.({ output: answer, metadata: { thoughts: this.state.thoughts } });
         return { answer, data: [], sql: "" };
       }
 
       // 0.5 Phase 7: Slot Filling & Working Memory Update
-      const slotSpan = trace.span({ name: 'slot-filling', input: { userQuery, memory: this.workingMemory } });
+      const slotSpan = trace?.span?.({ name: 'slot-filling', input: { userQuery, memory: this.workingMemory } });
       this.addThought("Updating working memory... ");
-      const memoryStr = JSON.stringify(this.workingMemory);
       const slotFillerOutput = await workerRequest(llmWorker, 'GENERATE', {
         messages: [{ role: 'user', content: PROMPTS.slotFiller(userQuery, memoryStr) }],
         jsonMode: true
@@ -230,10 +241,10 @@ export class Agent {
         const parsedMemory = typeof slotFillerOutput === 'string' ? JSON.parse(slotFillerOutput) : slotFillerOutput;
         this.workingMemory = { ...this.workingMemory, ...parsedMemory };
         console.log("[Agent] Working Memory Updated:", this.workingMemory);
-        slotSpan.end({ output: parsedMemory });
+        slotSpan?.end?.({ output: parsedMemory });
       } catch (e) {
         console.warn("[Agent] Slot filler failed to parse, using existing memory");
-        slotSpan.end({ output: "Failed to parse", level: "WARNING" });
+        slotSpan?.end?.({ output: "Failed to parse", level: "WARNING" });
       }
 
       // 0.6 Phase 6: Query Enhancement with Memory
@@ -242,25 +253,26 @@ export class Agent {
       const historyStr = history.slice(-5).map(m => `${m.role}: ${m.content}${m.sql ? ` (Used SQL: ${m.sql})` : ''}`).join('\n');
       const enhancedQueryPrompt = `
         ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, this.identity || "Unknown Manager")}
-        CURRENT ENTITIES IN MEMORY: ${JSON.stringify(this.workingMemory)}
+        CURRENT ENTITIES IN MEMORY: ${memoryStr}
         Ensure the rewritten query includes these entities if they are relevant to the user's pronouns or follow-up.
       `;
 
-      const enhancementSpan = trace.span({ name: 'query-enhancement', input: enhancedQueryPrompt });
+      const enhancementSpan = trace?.span?.({ name: 'query-enhancement', input: enhancedQueryPrompt });
       activeQuery = await workerRequest(llmWorker, 'GENERATE', {
         messages: [{ role: 'user', content: enhancedQueryPrompt }],
         stream: true
       }, (chunk) => this.addThoughtChunk(chunk), enhancementSpan);
-      enhancementSpan.end({ output: activeQuery });
+      enhancementSpan?.end?.({ output: activeQuery });
 
       // 1. Parallel RAG Retrieval (SQL & LORE)
       this.addThought("Retrieving knowledge... ");
-      const ragSpan = trace.span({ name: 'rag-retrieval', input: { query: activeQuery } });
-      const [sqlExamples, loreFacts] = await Promise.all([
-        workerRequest(ragWorker, 'RETRIEVE', { query: activeQuery, collection: 'SQL', k: 3 }, undefined, ragSpan),
-        workerRequest(ragWorker, 'RETRIEVE', { query: activeQuery, collection: 'LORE', k: 3 }, undefined, ragSpan)
-      ]);
-      ragSpan.end({ output: { sqlExamplesCount: sqlExamples.length, loreFactsCount: loreFacts.length } });
+      const ragSpan = trace?.span?.({ name: 'rag-retrieval', input: { query: activeQuery } });
+      const ragResults = await workerRequest(ragWorker, 'RETRIEVE_BATCH', [
+        { query: activeQuery, collection: 'SQL', k: 3 },
+        { query: activeQuery, collection: 'LORE', k: 3 }
+      ], undefined, ragSpan);
+      const [sqlExamples, loreFacts] = ragResults;
+      ragSpan?.end?.({ output: { sqlExamplesCount: sqlExamples.length, loreFactsCount: loreFacts.length } });
 
       const relevantLore = loreFacts.filter((f: any) => f.score > 0.6);
       let loreContext = relevantLore.map((f: any) => `${f.topic}: ${f.context}`).join('\n');
@@ -274,7 +286,7 @@ export class Agent {
       const tables = schemaData?.tables || [];
       const tableDescriptions = tables.map((t: any) => `Table: ${t.table_name}, Description: ${t.description}`).join('\n');
 
-      const routingSpan = trace.span({ name: 'table-routing', input: { activeQuery, tableDescriptions } });
+      const routingSpan = trace?.span?.({ name: 'table-routing', input: { activeQuery, tableDescriptions } });
       const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
         messages: [{ role: 'user', content: PROMPTS.tableRouter(activeQuery, tableDescriptions) }],
         jsonMode: true
@@ -290,10 +302,10 @@ export class Agent {
         const exampleTables = sqlExamples.flatMap((ex: any) => ex.tables_used || []);
         selectedTables = Array.from(new Set([...selectedTables, ...exampleTables]));
         this.addThought(`Using Tables: ${selectedTables.join(', ')}`);
-        routingSpan.end({ output: { selectedTables, isSqlQuery } });
+        routingSpan?.end?.({ output: { selectedTables, isSqlQuery } });
       } catch (e) {
         selectedTables = tables.map((t: any) => t.table_name);
-        routingSpan.end({ output: "Routing parse error", level: "WARNING" });
+        routingSpan?.end?.({ output: "Routing parse error", level: "WARNING" });
       }
 
       const filteredSchemaParts = ["DATABASE SCHEMA:\n"];
@@ -312,12 +324,12 @@ export class Agent {
         let lastError = "";
         const examplesStr = sqlExamples.map((s: any, i: number) => `Ex ${i + 1}: Q: ${s.question}\nSQL: ${s.sql}`).join('\n\n');
 
-        const sqlLoopSpan = trace.span({ name: 'sql-generation-loop', input: { activeQuery, retriesLimit: 2 } });
+        const sqlLoopSpan = trace?.span?.({ name: 'sql-generation-loop', input: { activeQuery, retriesLimit: 2 } });
         while (retries < 2) {
           this.setState({ status: 'querying' });
           this.addThought(retries > 0 ? "Retrying SQL generation..." : "Generating SQL...");
 
-          const genSpan = sqlLoopSpan.span({ name: `sql-gen-attempt-${retries}`, input: { lastError } });
+          const genSpan = sqlLoopSpan?.span?.({ name: `sql-gen-attempt-${retries}`, input: { lastError } });
           sql = await workerRequest(llmWorker, 'GENERATE', {
             messages: [{ role: 'user', content: PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examplesStr) }]
           }, undefined, genSpan);
@@ -327,12 +339,18 @@ export class Agent {
           if (validation.valid) {
             try {
               this.setState({ status: 'executing' });
-              data = await workerRequest(dbWorker, 'EXEC_SQL', { sql }, undefined, genSpan);
-              genSpan.end({ output: { sql, dataCount: data.length } });
+              const response = await workerRequest(dbWorker, 'EXEC_SQL', { sql }, undefined, genSpan);
+              data = Array.isArray(response) ? response : response.rows;
+
+              if (response.warning) {
+                this.addThought(`Caution: ${response.warning}`);
+              }
+
+              genSpan?.end?.({ output: { sql, dataCount: data.length } });
 
               // Auto-score for success
               if (data.length > 0) {
-                trace.score({
+                trace?.score?.({
                   name: "sql-success",
                   value: 1,
                   comment: "SQL produced data"
@@ -341,19 +359,19 @@ export class Agent {
               break;
             } catch (e: any) {
               lastError = e.message;
-              genSpan.end({ output: lastError, level: 'ERROR' });
-              trace.update({ tags: ["sql-retry"] });
+              genSpan?.end?.({ output: lastError, level: 'ERROR' });
+              trace?.update?.({ tags: ["sql-retry"] });
               retries++;
             }
           } else {
             lastError = validation.error;
             this.addThought(`Validation failed: ${lastError}`);
-            genSpan.end({ output: lastError, level: 'ERROR' });
-            trace.update({ tags: ["sql-retry"] });
+            genSpan?.end?.({ output: lastError, level: 'ERROR' });
+            trace?.update?.({ tags: ["sql-retry"] });
             retries++;
           }
         }
-        sqlLoopSpan.end({ output: { finalSql: sql, finalDataCount: data.length, attempts: retries + 1 } });
+        sqlLoopSpan?.end?.({ output: { finalSql: sql, finalDataCount: data.length, attempts: retries + 1 } });
       }
 
       // 4. Final Responder
@@ -361,20 +379,20 @@ export class Agent {
       this.addThought("Answering... ");
       const dataStr = JSON.stringify(data.slice(0, 50)).substring(0, 3000);
 
-      const responderSpan = trace.span({ name: 'final-responder', input: { dataCount: data.length, loreContext } });
+      const responderSpan = trace?.span?.({ name: 'final-responder', input: { dataCount: data.length, loreContext } });
       const answer = await workerRequest(llmWorker, 'GENERATE', {
         messages: [{ role: 'user', content: PROMPTS.responder(historyStr, dataStr, loreContext) }],
         stream: true
       }, (chunk) => this.addThoughtChunk(chunk), responderSpan);
-      responderSpan.end({ output: answer });
+      responderSpan?.end?.({ output: answer });
 
       this.setState({ status: 'idle' });
-      trace.end({ output: answer, metadata: { thoughts: this.state.thoughts, memory: this.workingMemory } });
+      trace?.end?.({ output: answer, metadata: { thoughts: this.state.thoughts, memory: this.workingMemory } });
       return { answer, data, sql };
 
     } catch (err: any) {
       this.setState({ status: 'error', error: err.message });
-      trace.end({ output: err.message, level: 'ERROR', metadata: { thoughts: this.state.thoughts } });
+      trace?.end?.({ output: err.message, level: 'ERROR', metadata: { thoughts: this.state.thoughts } });
       setTimeout(() => this.setState({ status: 'idle' }), 5000);
       throw err;
     }
