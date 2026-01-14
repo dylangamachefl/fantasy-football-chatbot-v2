@@ -2,11 +2,7 @@ import { CreateMLCEngine, MLCEngine, type InitProgressReport } from "@mlc-ai/web
 
 let engine: MLCEngine | null = null;
 
-// Models configuration
-const MODELS = {
-  primary: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-  robust: "Phi-3.5-mini-instruct-q4f16_1-MLC", // Note: Ensure this ID is correct in MLC registry or custom
-};
+import MODELS from '../config/models.json';
 
 // Check official MLC registry for exact IDs if needed.
 // For now we use the ones requested, mapped to likely MLC IDs.
