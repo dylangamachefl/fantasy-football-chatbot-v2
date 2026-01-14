@@ -1,16 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --sd-navy: #0a0e1a;
-  --sd-gold: #fbbf24;
-  --sd-blue: #3b82f6;
-  --sd-accent: #f59e0b;
+@theme {
+  --color-sd-navy: #0a0e1a;
+  --color-sd-gold: #fbbf24;
+  --color-sd-blue: #3b82f6;
+  --color-sd-accent: #f59e0b;
 }
 
+/*
+  In Tailwind v4, we use standard CSS variables for theme extension.
+  But for now let's just use @import "tailwindcss"; and keep custom CSS below.
+*/
+
 body {
-  background-color: var(--sd-navy);
+  background-color: var(--color-sd-navy);
   color: white;
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -39,7 +42,7 @@ body {
 
 /* Glowing Border for Breaking News */
 .breaking-news-glow {
-  border: 2px solid var(--sd-gold);
+  border: 2px solid var(--color-sd-gold);
   box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
 }
 

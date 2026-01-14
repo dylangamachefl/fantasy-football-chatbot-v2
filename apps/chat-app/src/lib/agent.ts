@@ -1,26 +1,11 @@
 import { PROMPTS } from './prompts';
 import { LangfuseWeb } from 'langfuse';
+import type { Message, AgentState, WorkingMemory } from '../types';
 
 const langfuse = new LangfuseWeb({
   publicKey: "pk-lf-05fea78a-def0-4143-847d-f9b06912f701",
   baseUrl: "https://cloud.langfuse.com",
 });
-
-// Types
-type Message = { role: 'user' | 'assistant' | 'system', content: string, sql?: string, data?: any[] };
-type WorkingMemory = {
-  Manager: string;
-  Season: string;
-  Player: string;
-  Week: string;
-};
-type AgentState = {
-  status: 'idle' | 'initializing' | 'thinking' | 'querying' | 'executing' | 'reflecting' | 'answering' | 'error';
-  thoughts: string[];
-  error?: string;
-  identity?: string;
-  managerBio?: string;
-};
 
 export const VALID_OWNER_NAMES = [
   "Dylan", "Dan", "Zach", "Chris", "Sean", "Jack",
