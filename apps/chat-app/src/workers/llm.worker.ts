@@ -52,20 +52,8 @@ async function initLLM(modelId: string) {
     engine = await CreateMLCEngine(modelId, { initProgressCallback });
     console.log(`[LLM Worker] Engine initialized successfully.`);
   } catch (error: any) {
-    console.error(`[LLM Worker] Failed to load primary model ${modelId}: ${error.message}`);
-
-    if (modelId !== MODELS.robust) {
-      console.log(`[LLM Worker] Attempting fallback to robust model: ${MODELS.robust}`);
-      try {
-        engine = await CreateMLCEngine(MODELS.robust, { initProgressCallback });
-        console.log(`[LLM Worker] Fallback engine initialized successfully.`);
-      } catch (fallbackError: any) {
-        console.error(`[LLM Worker] Fallback model also failed: ${fallbackError.message}`);
-        throw fallbackError;
-      }
-    } else {
-      throw error;
-    }
+    console.error(`[LLM Worker] Failed to load model ${modelId}: ${error.message}`);
+    throw error;
   }
 }
 

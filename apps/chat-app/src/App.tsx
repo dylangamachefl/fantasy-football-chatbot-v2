@@ -12,7 +12,6 @@ type Message = { role: 'user' | 'assistant', content: string, data?: any[], sql?
 
 const MODELS = {
   primary: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-  robust: "Phi-3.5-mini-instruct-q4f16_1-MLC",
 };
 
 function App() {
@@ -21,7 +20,6 @@ function App() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [status, setStatus] = useState<string>("idle");
   const [thoughts, setThoughts] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState(MODELS.primary);
   const [isInitializing, setIsInitializing] = useState(false);
   const [managerIdentity, setManagerIdentity] = useState<string | null>(() => localStorage.getItem('ff_manager_identity'));
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -42,7 +40,7 @@ function App() {
     });
 
     try {
-      await newAgent.init(selectedModel);
+      await newAgent.init(MODELS.primary);
       setAgent(newAgent);
     } catch (e) {
       console.error(e);
@@ -149,18 +147,6 @@ function App() {
           </p>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Transmission Model</label>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full bg-gray-950 border border-gray-800 rounded-xl p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
-              >
-                <option value={MODELS.primary}>Qwen 2.5 (1.5B) - Fast</option>
-                <option value={MODELS.robust}>Phi 3.5 (3.8B) - Robust</option>
-              </select>
-            </div>
-
             <button
               onClick={initAgent}
               disabled={isInitializing}

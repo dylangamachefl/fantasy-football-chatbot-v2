@@ -1,4 +1,3 @@
 {
-    "primary": "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-    "robust": "Phi-3.5-mini-instruct-q4f16_1-MLC"
+    "primary": "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"
 }
