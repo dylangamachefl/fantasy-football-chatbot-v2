@@ -69,11 +69,29 @@ async function loadBank(url: string, type: 'SQL' | 'LORE') {
     console.log(`[RAG Worker] Loaded ${data.length} items for ${type} bank.`);
 
     // Pre-calculate embeddings
-    for (const item of data) {
-      if (!item.embedding) {
-        const textToEmbed = type === 'SQL' ? item.question : `${item.topic}: ${item.context}`;
-        const out = await embedder(textToEmbed, { pooling: 'mean', normalize: true });
-        item.embedding = Array.from(out.data);
+    const itemsToEmbed = data.filter((item: any) => !item.embedding);
+    if (itemsToEmbed.length > 0) {
+      const texts = itemsToEmbed.map((item: any) =>
+        type === 'SQL' ? item.question : `${item.topic}: ${item.context}`
+      );
+
+      try {
+        console.log(`[RAG Worker] Batch embedding ${texts.length} items for ${type}...`);
+        const out = await embedder(texts, { pooling: 'mean', normalize: true });
+        const batchSize = out.dims[0];
+        const embDim = out.dims[1];
+
+        for (let i = 0; i < batchSize; i++) {
+          const start = i * embDim;
+          const end = start + embDim;
+          itemsToEmbed[i].embedding = Array.from(out.data.slice(start, end));
+        }
+      } catch (e) {
+        console.warn(`[RAG Worker] Batch embedding failed, falling back to concurrent execution:`, e);
+        await Promise.all(itemsToEmbed.map(async (item: any, i: number) => {
+          const out = await embedder(texts[i], { pooling: 'mean', normalize: true });
+          item.embedding = Array.from(out.data);
+        }));
       }
     }
     console.log(`[RAG Worker] ${type} bank ready.`);

@@ -95,7 +95,7 @@ function workerRequest(
 }
 
 // Global Schema Cache
-let schemaStr = "";
+let schemaData: any = null;
 
 export class Agent {
   private onStateChange: (state: AgentState) => void;
@@ -146,8 +146,7 @@ export class Agent {
       console.log("Loading schema...");
       const schemaRes = await fetch('/assets/schema.json');
       if (!schemaRes.ok) throw new Error(`Failed to fetch schema.json`);
-      const schemaData = await schemaRes.json();
-      schemaStr = JSON.stringify(schemaData, null, 2);
+      schemaData = await schemaRes.json();
 
       // Init Workers
       const p1 = workerRequest(dbWorker, 'INIT_DB');
@@ -287,8 +286,7 @@ export class Agent {
 
       // 2. Table Routing & Dynamic Schema Pruning
       this.addThought("Selecting tables... ");
-      const schemaData = JSON.parse(schemaStr);
-      const tables = schemaData.tables || [];
+      const tables = schemaData?.tables || [];
       const tableDescriptions = tables.map((t: any) => `Table: ${t.table_name}, Description: ${t.description}`).join('\n');
 
       const routingSpan = trace.span({ name: 'table-routing', input: { activeQuery, tableDescriptions } });
@@ -376,7 +374,7 @@ export class Agent {
       // 4. Final Responder
       this.setState({ status: 'answering' });
       this.addThought("Answering... ");
-      const dataStr = JSON.stringify(data).substring(0, 3000);
+      const dataStr = JSON.stringify(data.slice(0, 50)).substring(0, 3000);
 
       const responderSpan = trace.span({ name: 'final-responder', input: { dataCount: data.length, loreContext } });
       const answer = await workerRequest(llmWorker, 'GENERATE', {
