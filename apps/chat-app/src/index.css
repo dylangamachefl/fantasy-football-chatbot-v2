@@ -1,1 +1,49 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sd-navy: #0a0e1a;
+  --sd-gold: #fbbf24;
+  --sd-blue: #3b82f6;
+  --sd-accent: #f59e0b;
+}
+
+body {
+  background-color: var(--sd-navy);
+  color: white;
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Marquee Animation */
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 20s linear infinite;
+}
+
+/* Custom Scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Glowing Border for Breaking News */
+.breaking-news-glow {
+  border: 2px solid var(--sd-gold);
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+}
+
+/* Status Line Pulse */
+.status-pulse {
+  box-shadow: 0 0 8px currentColor;
+}

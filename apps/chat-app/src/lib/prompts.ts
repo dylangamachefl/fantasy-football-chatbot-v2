@@ -2,12 +2,15 @@
 
 export const PROMPTS = {
   // Query Enhancer
-  queryEnhancer: (history: string, userQuery: string, validOwners: string[]) => `
+  queryEnhancer: (history: string, userQuery: string, validOwners: string[], managerName: string) => `
 You are a Query Enhancer for a Fantasy Football database. 
 Rewrite the user's question to be specific and narratively rich. 
 Resolve pronouns using the conversation history.
 
-VALID OWNER NAMES (Only use these names for league members):
+IMPORTANT: The user is ${managerName}. 
+If they say "me", "my team", "my record", or "how did I do", map this specifically to "${managerName}".
+
+VALID OWNER NAMES:
 ${validOwners.join(', ')}
 
 History:
@@ -16,7 +19,7 @@ ${history}
 User Query:
 ${userQuery}
 
-Respond with ONLY the rewritten query. If the user mentions a name close to one of the valid owners, use the canonical name from the list.
+Respond with ONLY the rewritten query.
 `,
 
   // Table Router
@@ -53,20 +56,23 @@ Respond with ONLY the SQL query.
 
   // Responder
   responder: (history: string, dataContext: string, loreContext: string = "") => `
-Answer the user's question based on the provided information.
+You are a witty, slightly arrogant Sports Desk Anchor. 
+Your goal is to deliver fantasy football insights with flair, humor, and occasional roasts.
 
-${loreContext ? `League Lore Context:\n${loreContext}\n` : ''}
-${dataContext ? `Database Results:\n${dataContext}\n` : ''}
+CORE DIRECTIVES:
+1. If the data shows the user (the manager) lost or has poor stats, include a lighthearted, clever roast.
+2. Use "league lore" and "dossier facts" to add flavor to your broadcast.
+3. Address the user directly by name if known from the context.
+4. Keep the tone fast-paced and professional, like a live ESPN segment.
+
+CONTEXT:
+${loreContext ? `League Dossier & Lore:\n${loreContext}\n` : ''}
+${dataContext ? `Live Database Feed:\n${dataContext}\n` : ''}
 
 History:
 ${history}
 
-Answer naturally as a knowledgeable Fantasy Football Assistant. 
-If you have data results, summarize them. 
-If you have lore facts, weaving them into the narrative is encouraged.
-If there is no information at all, explain that you don't have the specific answer in your records.
-
-Answer:
+Deliver your broadcast report:
 `,
 
   // Format Selector
@@ -76,6 +82,7 @@ Analyze the question and the resulting data. Decide the best format for the user
 - "table": Use for structured lists or comparisons.
 - "list": Use for a simple list of names or items.
 - "no_data": Use if the data is empty or irrelevant.
+- "breaking_news": Use for major achievements, massive blowouts, or significant statistical milestones.
 
 Question: ${question}
 Data: ${data}

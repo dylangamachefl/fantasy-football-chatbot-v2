@@ -18,9 +18,11 @@ type AgentState = {
   status: 'idle' | 'initializing' | 'thinking' | 'querying' | 'executing' | 'reflecting' | 'answering' | 'error';
   thoughts: string[];
   error?: string;
+  identity?: string;
+  managerBio?: string;
 };
 
-const VALID_OWNER_NAMES = [
+export const VALID_OWNER_NAMES = [
   "Dylan", "Dan", "Zach", "Chris", "Sean", "Jack",
   "Lac", "Will", "Josh", "Jake", "Fitz", "Mark", "Nick"
 ];
@@ -106,13 +108,18 @@ export class Agent {
   };
 
   private lastTraceId: string | null = null;
+  private identity: string | null = localStorage.getItem('ff_manager_identity');
+  private managerBio: string | null = null;
 
   constructor(onStateChange: (state: AgentState) => void) {
     this.onStateChange = onStateChange;
+    if (this.identity) {
+      this.workingMemory.Manager = this.identity;
+    }
   }
 
   private setState(update: Partial<AgentState>) {
-    this.state = { ...this.state, ...update };
+    this.state = { ...this.state, ...update, identity: this.identity || undefined, managerBio: this.managerBio || undefined };
     this.onStateChange(this.state);
   }
 
@@ -163,10 +170,31 @@ export class Agent {
       const p3 = workerRequest(ragWorker, 'INIT_RAG');
 
       await Promise.all([p1, p2, p3]);
-      this.setState({ status: 'idle', thoughts: ['System Ready.'] });
+
+      // Bio Fetch
+      if (this.identity) {
+        await this.fetchManagerBio();
+      }
+
+      this.setState({ status: 'idle', thoughts: ['System Ready. Transmission Secured.'] });
     } catch (err: any) {
       this.setState({ status: 'error', error: err.message });
       throw err;
+    }
+  }
+
+  private async fetchManagerBio() {
+    try {
+      this.addThought(`Retrieving dossier for ${this.identity}...`);
+      const sql = `SELECT * FROM Fact_Manager_Career_Leaderboard WHERE owner_name = '${this.identity}'`;
+      const data = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
+      if (data && data.length > 0) {
+        const bio = data[0];
+        this.managerBio = `Manager ${bio.owner_name} has ${bio.career_wins} career wins (${(bio.career_win_percentage * 100).toFixed(1)}% win rate) and ${bio.championships_won} championships. Average finish: ${bio.avg_final_standing}.`;
+        console.log("[Agent] Manager Bio Loaded:", this.managerBio);
+      }
+    } catch (e) {
+      console.warn("[Agent] Failed to fetch manager bio:", e);
     }
   }
 
@@ -229,7 +257,7 @@ export class Agent {
       this.addThought("Resolving context... ");
       const historyStr = history.slice(-5).map(m => `${m.role}: ${m.content}${m.sql ? ` (Used SQL: ${m.sql})` : ''}`).join('\n');
       const enhancedQueryPrompt = `
-        ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES)}
+        ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, this.identity || "Unknown Manager")}
         CURRENT ENTITIES IN MEMORY: ${JSON.stringify(this.workingMemory)}
         Ensure the rewritten query includes these entities if they are relevant to the user's pronouns or follow-up.
       `;
@@ -251,7 +279,10 @@ export class Agent {
       ragSpan.end({ output: { sqlExamplesCount: sqlExamples.length, loreFactsCount: loreFacts.length } });
 
       const relevantLore = loreFacts.filter((f: any) => f.score > 0.6);
-      const loreContext = relevantLore.map((f: any) => `${f.topic}: ${f.context}`).join('\n');
+      let loreContext = relevantLore.map((f: any) => `${f.topic}: ${f.context}`).join('\n');
+      if (this.managerBio) {
+        loreContext = `CONTEXT ON USER (${this.identity}): ${this.managerBio}\n\n${loreContext}`;
+      }
       if (relevantLore.length > 0) this.addThought(`Found ${relevantLore.length} lore facts.`);
 
       // 2. Table Routing & Dynamic Schema Pruning
