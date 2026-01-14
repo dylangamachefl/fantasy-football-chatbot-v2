@@ -58,7 +58,19 @@ function workerRequest(
           'VALIDATE_SQL_SUCCESS'
         ].includes(e.data.type)) {
           worker.removeEventListener('message', handler);
-          span?.end({ output: e.data.payload });
+
+          // Capture metadata if present
+          const output = e.data.payload;
+          const metadata = e.data.metadata || {};
+
+          span?.end({
+            output: output,
+            metadata: {
+              ...metadata,
+              ...(typeof output === 'object' ? output : {})
+            }
+          });
+
           resolve(e.data.payload);
         } else if (e.data.type === 'ERROR') {
           worker.removeEventListener('message', handler);
@@ -69,7 +81,14 @@ function workerRequest(
     };
 
     worker.addEventListener('message', handler);
-    worker.postMessage({ type, payload, id });
+
+    // Propagate trace context
+    const traceContext = parentSpan ? {
+      traceId: parentSpan.traceId,
+      parentSpanId: parentSpan.id
+    } : undefined;
+
+    worker.postMessage({ type, payload, id, traceContext });
   });
 }
 
@@ -85,6 +104,8 @@ export class Agent {
     Player: "None",
     Week: "None"
   };
+
+  private lastTraceId: string | null = null;
 
   constructor(onStateChange: (state: AgentState) => void) {
     this.onStateChange = onStateChange;
@@ -166,6 +187,7 @@ export class Agent {
       name: 'agent-process-query',
       input: { userQuery, history, workingMemory: this.workingMemory },
     });
+    this.lastTraceId = trace.id;
 
     try {
       // 0. Conversational Check
@@ -293,16 +315,27 @@ export class Agent {
               this.setState({ status: 'executing' });
               data = await workerRequest(dbWorker, 'EXEC_SQL', { sql }, undefined, genSpan);
               genSpan.end({ output: { sql, dataCount: data.length } });
+
+              // Auto-score for success
+              if (data.length > 0) {
+                trace.score({
+                  name: "sql-success",
+                  value: 1,
+                  comment: "SQL produced data"
+                });
+              }
               break;
             } catch (e: any) {
               lastError = e.message;
               genSpan.end({ output: lastError, level: 'ERROR' });
+              trace.update({ tags: ["sql-retry"] });
               retries++;
             }
           } else {
             lastError = validation.error;
             this.addThought(`Validation failed: ${lastError}`);
             genSpan.end({ output: lastError, level: 'ERROR' });
+            trace.update({ tags: ["sql-retry"] });
             retries++;
           }
         }
@@ -331,5 +364,16 @@ export class Agent {
       setTimeout(() => this.setState({ status: 'idle' }), 5000);
       throw err;
     }
+  }
+
+  async scoreLastTrace(value: number, comment?: string) {
+    if (!this.lastTraceId) return;
+
+    langfuse.score({
+      traceId: this.lastTraceId,
+      name: "user-feedback",
+      value: value,
+      comment: comment
+    });
   }
 }

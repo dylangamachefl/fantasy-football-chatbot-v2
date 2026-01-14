@@ -23,8 +23,8 @@ self.onmessage = async (e: MessageEvent) => {
         if (payload.stream) {
           await generateStream(payload.messages, id, payload.jsonMode);
         } else {
-          const response = await generate(payload.messages, payload.schema, payload.jsonMode);
-          self.postMessage({ type: 'GENERATE_SUCCESS', id, payload: response });
+          const { text, metadata } = await generate(payload.messages, payload.schema, payload.jsonMode);
+          self.postMessage({ type: 'GENERATE_SUCCESS', id, payload: text, metadata });
         }
         break;
 
@@ -36,7 +36,10 @@ self.onmessage = async (e: MessageEvent) => {
   }
 };
 
+let currentModelId = "";
+
 async function initLLM(modelId: string) {
+  currentModelId = modelId;
   const initProgressCallback = (report: InitProgressReport) => {
     self.postMessage({
       type: 'PROGRESS',
@@ -69,6 +72,7 @@ async function initLLM(modelId: string) {
 async function generate(messages: any[], _schema?: any, jsonMode: boolean = false) {
   if (!engine) throw new Error("Engine not initialized");
 
+  const startTime = Date.now();
   const options: any = {
     temperature: 0.1, // Low temp for SQL/Code
   };
@@ -82,11 +86,21 @@ async function generate(messages: any[], _schema?: any, jsonMode: boolean = fals
     ...options
   });
 
-  return output.choices[0].message.content;
+  const fullText = output.choices[0].message.content;
+  return {
+    text: fullText,
+    metadata: {
+      totalTime: Date.now() - startTime,
+      modelUsed: currentModelId
+    }
+  };
 }
 
 async function generateStream(messages: any[], id: string, jsonMode: boolean = false) {
   if (!engine) throw new Error("Engine not initialized");
+
+  const startTime = Date.now();
+  let firstTokenTime = 0;
 
   const options: any = { temperature: 0.1 };
   if (jsonMode) options.response_format = { type: "json_object" };
@@ -99,10 +113,20 @@ async function generateStream(messages: any[], id: string, jsonMode: boolean = f
 
   let fullText = "";
   for await (const chunk of asyncChunkGenerator) {
+    if (!firstTokenTime) firstTokenTime = Date.now() - startTime;
     const text = chunk.choices[0]?.delta?.content || "";
     fullText += text;
     self.postMessage({ type: 'CHUNK', id, payload: text });
   }
 
-  self.postMessage({ type: 'GENERATE_SUCCESS', id, payload: fullText });
+  self.postMessage({
+    type: 'GENERATE_SUCCESS',
+    id,
+    payload: fullText,
+    metadata: {
+      ttft: firstTokenTime,
+      totalTime: Date.now() - startTime,
+      modelUsed: currentModelId
+    }
+  });
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Agent } from './lib/agent';
-import { Send, Database, Brain, Loader2, Settings } from 'lucide-react';
+import { Send, Database, Brain, Loader2, Settings, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -49,6 +49,12 @@ function App() {
     } finally {
       setIsInitializing(false);
     }
+  };
+
+  const handleFeedback = async (value: number) => {
+    if (!agent) return;
+    await agent.scoreLastTrace(value);
+    // Optionally show a "thank you" toast or disable buttons
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -204,6 +210,26 @@ function App() {
                       {m.data.length > 5 && <div className="text-center text-xs text-gray-500 mt-2">Showing 5 of {m.data.length} rows</div>}
                     </div>
                   )}
+
+                  {m.role === 'assistant' && i === messages.length - 1 && (
+                    <div className="mt-4 flex items-center gap-2 border-t border-gray-700/50 pt-3">
+                      <span className="text-xs text-gray-500">Was this helpful?</span>
+                      <button
+                        onClick={() => handleFeedback(1)}
+                        className="p-1 hover:text-green-400 transition"
+                        title="Yes, it was helpful"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(-1)}
+                        className="p-1 hover:text-red-400 transition"
+                        title="No, it wasn't helpful"
+                      >
+                        <ThumbsDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -251,7 +277,7 @@ function App() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
