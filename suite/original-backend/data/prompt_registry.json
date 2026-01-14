@@ -1,6 +1,0 @@
-{
-    "query_enhancer": "data/compiled_query_enhancer.json",
-    "table_router": "data/compiled_table_router.json",
-    "sql_generator": "data/compiled_sql_generator.json",
-    "responder": "data/compiled_responder.json"
-}
