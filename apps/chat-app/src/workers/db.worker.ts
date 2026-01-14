@@ -17,6 +17,10 @@ self.onmessage = async (e: MessageEvent) => {
         const result = await execSQL(payload.sql);
         self.postMessage({ type: 'EXEC_SQL_SUCCESS', id, payload: result });
         break;
+      case 'VALIDATE_SQL':
+        const validation = await validateSQL(payload.sql);
+        self.postMessage({ type: 'VALIDATE_SQL_SUCCESS', id, payload: validation });
+        break;
       default:
         throw new Error(`Unknown message type: ${type}`);
     }
@@ -87,4 +91,19 @@ async function execSQL(sql: string) {
     },
   });
   return results;
+}
+
+async function validateSQL(sql: string) {
+  if (!db) throw new Error('Database not initialized');
+
+  try {
+    // We use EXPLAIN QUERY PLAN to check if the SQL is valid without actually executing it
+    // This is safer and faster for validation.
+    db.exec({
+      sql: `EXPLAIN QUERY PLAN ${sql}`,
+    });
+    return { valid: true };
+  } catch (e: any) {
+    return { valid: false, error: e.message || String(e) };
+  }
 }

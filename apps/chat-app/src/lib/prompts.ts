@@ -21,9 +21,8 @@ Respond with ONLY the rewritten query. If the user mentions a name close to one 
 
   // Table Router
   tableRouter: (userQuery: string, tableDescriptions: string) => `
-Identify the database tables required to answer the user's question.
-Select specialty tables if the question implies them.
-Core tables (FantasyOwners_LLM, FantasySeasons_LLM, FantasyTeams_LLM, FantasyMatchups_LLM) are always included, so focus on specialty ones.
+Identify which database tables are absolutely necessary to answer the user's question.
+If the question is about league history or "lore" that doesn't sound like a database query, you can skip SQL-specific tables.
 
 Table Descriptions:
 ${tableDescriptions}
@@ -31,37 +30,41 @@ ${tableDescriptions}
 User Query:
 ${userQuery}
 
-Respond in JSON format: { "selected_tables": ["Table1", "Table2"], "reasoning": "..." }
+Respond in JSON format: { "selected_tables": ["Table1", "Table2"], "is_sql_query": true/false, "reasoning": "..." }
 `,
 
   // SQL Generator
   sqlGenerator: (question: string, schema: string, previousSql: string = "", errorMessage: string = "", examples: string = "") => `
 Generate a valid SQLite query to answer the question based on the schema.
-Follow specific SQL recipes for Head-to-Head and Rankings.
+Only use the tables and columns provided in the schema.
 
 Schema:
 ${schema}
 
-${examples ? `Examples:\n${examples}\n` : ''}
+${examples ? `Examples (Use these for style and table choice reference):\n${examples}\n` : ''}
 
 ${previousSql ? `Previous Failed SQL: ${previousSql}\nError Message: ${errorMessage}\nFix the error.` : ''}
 
 Question:
 ${question}
 
-Respond with ONLY the SQL query. Do not include markdown code blocks like \`\`\`sql.
+Respond with ONLY the SQL query.
 `,
 
   // Responder
-  responder: (history: string, dataContext: string) => `
-Answer the user's question based on the database results.
-The data includes column headers to understand the values.
+  responder: (history: string, dataContext: string, loreContext: string = "") => `
+Answer the user's question based on the provided information.
+
+${loreContext ? `League Lore Context:\n${loreContext}\n` : ''}
+${dataContext ? `Database Results:\n${dataContext}\n` : ''}
 
 History:
 ${history}
 
-Data:
-${dataContext}
+Answer naturally as a knowledgeable Fantasy Football Assistant. 
+If you have data results, summarize them. 
+If you have lore facts, weaving them into the narrative is encouraged.
+If there is no information at all, explain that you don't have the specific answer in your records.
 
 Answer:
 `,
@@ -69,8 +72,8 @@ Answer:
   // Format Selector
   formatSelector: (question: string, data: string) => `
 Analyze the question and the resulting data. Decide the best format for the user:
-- "sentence": Use for single facts or very short answers (e.g. "Who won?" -> "Zach won.")
-- "table": Use for structured lists or comparisons (e.g. "Top 5 points")
+- "sentence": Use for single facts or very short answers.
+- "table": Use for structured lists or comparisons.
 - "list": Use for a simple list of names or items.
 - "no_data": Use if the data is empty or irrelevant.
 
@@ -78,5 +81,24 @@ Question: ${question}
 Data: ${data}
 
 Respond with ONLY the format type.
+`,
+
+  // Phase 7: Slot Filler
+  slotFiller: (query: string, currentMemory: string) => `
+Extract specific entities from the user query to update the "Working Memory".
+Current Memory: ${currentMemory}
+Query: ${query}
+
+Identifiable Entity Categories:
+- Manager (e.g., Dylan, Chris)
+- Season (e.g., 2022, 2023)
+- Player (e.g., Christian McCaffrey)
+- Week (e.g., Week 5)
+
+If the query explicitly mentions a new entity, update the slot.
+If the query implies an entity (e.g., "And what about him?"), do not change the slot unless certain.
+
+Respond in JSON format: { "Manager": "...", "Season": "...", "Player": "...", "Week": "..." }
+For any category not mentioned or implied, use the value from Current Memory.
 `
 };

@@ -18,7 +18,8 @@ load_dotenv()
 
 # --- AGENT V2.0 IMPORTS (NEW) ---
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
+import json
+sys.path.append(os.path.join(os.path.dirname(__file__), "../original-backend"))
 from src.agent.workflow import app
 from src.agent.state import AgentState
 from src.rate_limiter import throttle
@@ -106,22 +107,24 @@ def main():
     logger.info(f"Evaluation results will be saved to: {output_filename}")
 
     try:
-        test_set_df = pd.read_csv("data/test_set_simple.csv")
+        golden_file = os.path.join(os.path.dirname(__file__), "../../shared/golden_dataset.json")
+        with open(golden_file, "r") as f:
+            test_set = json.load(f)
         logger.info(
-            f"Loaded {len(test_set_df)} questions from data/test_set_simple.csv"
+            f"Loaded {len(test_set)} questions from shared/golden_dataset.json"
         )
     except FileNotFoundError:
         logger.error(
-            "FATAL: data/test_set_simple.csv not found. Please create it first."
+            "FATAL: shared/golden_dataset.json not found."
         )
         return
 
     all_predictions_with_state = []
     logger.info("Running agent on all test questions...")
 
-    for index, row in tqdm(test_set_df.iterrows(), total=test_set_df.shape[0]):
-        question = row["question"]
-        ground_truth = row["ground_truth_answer"]
+    for index, item in tqdm(enumerate(test_set), total=len(test_set)):
+        question = item["question"]
+        ground_truth = item.get("answer", "") # Map "answer" from JSON to ground_truth_answer
 
         final_state = run_agent_on_question(question)
 
@@ -135,7 +138,7 @@ def main():
 
         all_predictions_with_state.append(
             {
-                "question_id": row.get("question_id", index),
+                "question_id": index,
                 "question": question,
                 "ground_truth_answer": ground_truth,
                 "predicted_answer": predicted_answer,

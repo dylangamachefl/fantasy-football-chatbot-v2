@@ -6,6 +6,7 @@ env.allowRemoteModels = true;
 
 let embedder: any = null;
 let shotBank: any[] = [];
+let loreBank: any[] = [];
 
 self.onmessage = async (e: MessageEvent) => {
   const { type, payload, id } = e.data;
@@ -20,8 +21,8 @@ self.onmessage = async (e: MessageEvent) => {
         break;
 
       case 'RETRIEVE':
-        console.log('[RAG Worker] Starting retrieval for query:', payload.query);
-        const results = await retrieveExamples(payload.query, payload.k);
+        console.log(`[RAG Worker] Starting retrieval for collection: ${payload.collection}, query: ${payload.query}`);
+        const results = await retrieve(payload.query, payload.collection, payload.k);
         console.log('[RAG Worker] Retrieval complete, sending results');
         self.postMessage({ type: 'RETRIEVE_SUCCESS', id, payload: results });
         break;
@@ -41,8 +42,6 @@ async function initRAG() {
   try {
     const modelId = 'Xenova/all-MiniLM-L6-v2';
     console.log(`[RAG Worker] Initializing with local model: ${modelId}`);
-    console.log(`[RAG Worker] Starting model download/load from HuggingFace...`);
-
     embedder = await pipeline('feature-extraction', modelId);
     console.log("[RAG Worker] Embedder initialized successfully.");
   } catch (error) {
@@ -50,61 +49,58 @@ async function initRAG() {
     throw error;
   }
 
-  // Load Shot Bank
-  try {
-    console.log("[RAG Worker] Fetching golden dataset...");
-    const res = await fetch('/assets/golden_dataset.json');
-    if (!res.ok) throw new Error(`Failed to fetch dataset: ${res.statusText}`);
-    shotBank = await res.json();
-    console.log(`[RAG Worker] Loaded ${shotBank.length} examples from golden dataset.`);
-  } catch (error) {
-    console.error("[RAG Worker] Failed to load shot bank:", error);
-    throw error;
-  }
-
-  // Pre-calculate embeddings for shot bank
-  console.log("[RAG Worker] Pre-calculating embeddings for shot bank...");
-  let processed = 0;
-  for (const shot of shotBank) {
-    if (!shot.embedding) {
-      const out = await embedder(shot.question, { pooling: 'mean', normalize: true });
-      shot.embedding = Array.from(out.data);
-      processed++;
-
-      // Log progress every 10 examples
-      if (processed % 10 === 0 || processed === shotBank.length) {
-        console.log(`[RAG Worker] Embedded ${processed}/${shotBank.length} examples...`);
-      }
-    }
-  }
-  console.log("[RAG Worker] Shot bank ready. All embeddings pre-calculated.");
+  // Load Banks
+  await Promise.all([
+    loadBank('/assets/golden_dataset.json', 'SQL'),
+    loadBank('/assets/league_lore.json', 'LORE')
+  ]);
 }
 
-async function retrieveExamples(query: string, k: number = 3): Promise<string> {
-  if (!embedder || shotBank.length === 0) {
-    console.log('[RAG Worker] Embedder or shot bank not ready, returning empty');
-    return "";
-  }
+async function loadBank(url: string, type: 'SQL' | 'LORE') {
+  try {
+    console.log(`[RAG Worker] Fetching ${type} bank from ${url}...`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch ${type} bank: ${res.statusText}`);
+    const data = await res.json();
 
-  console.log('[RAG Worker] Generating embedding for query...');
+    if (type === 'SQL') shotBank = data;
+    else loreBank = data;
+
+    console.log(`[RAG Worker] Loaded ${data.length} items for ${type} bank.`);
+
+    // Pre-calculate embeddings
+    for (const item of data) {
+      if (!item.embedding) {
+        const textToEmbed = type === 'SQL' ? item.question : `${item.topic}: ${item.context}`;
+        const out = await embedder(textToEmbed, { pooling: 'mean', normalize: true });
+        item.embedding = Array.from(out.data);
+      }
+    }
+    console.log(`[RAG Worker] ${type} bank ready.`);
+  } catch (error) {
+    console.error(`[RAG Worker] Failed to load ${type} bank:`, error);
+    throw error;
+  }
+}
+
+async function retrieve(query: string, collection: 'SQL' | 'LORE', k: number = 3): Promise<any[]> {
+  if (!embedder) throw new Error("Embedder not ready");
+
+  const bank = collection === 'SQL' ? shotBank : loreBank;
+  if (bank.length === 0) return [];
+
   const out = await embedder(query, { pooling: 'mean', normalize: true });
   const queryEmb = out.data;
-  console.log('[RAG Worker] Query embedding generated, calculating similarities...');
 
   // Cosine similarity
-  const scored = shotBank.map(shot => {
+  const scored = bank.map(item => {
     let dot = 0;
     for (let i = 0; i < queryEmb.length; i++) {
-      dot += queryEmb[i] * shot.embedding[i];
+      dot += queryEmb[i] * item.embedding[i];
     }
-    return { ...shot, score: dot };
+    return { ...item, score: dot };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  const topK = scored.slice(0, k);
-  console.log(`[RAG Worker] Found top ${topK.length} examples`);
-
-  return topK.map((s, i) =>
-    `Example ${i + 1}:\nQ: ${s.question}\nSQL: ${s.sql}`
-  ).join('\n\n');
+  return scored.slice(0, k);
 }

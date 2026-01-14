@@ -1,17 +1,613 @@
 [
   {
-    "question": "Who won the championship in 2022?",
+    "question": "Which player scored the most points in Week 5 of the 2023 season?",
+    "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Performance_Weekly WHERE season_id = 2023 AND game_week = 5 ORDER BY total_fantasy_points DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "The highest scorer in Week 5 of 2023 was [player_name] with [total_fantasy_points] points."
+  },
+  {
+    "question": "How many rushing yards did Christian McCaffrey have in Week 10 of 2022?",
+    "sql": "SELECT rush_yds FROM Fact_Player_Performance_Weekly WHERE player_name = 'Christian McCaffrey' AND season_id = 2022 AND game_week = 10",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "Christian McCaffrey rushed for [rush_yds] yards in Week 10 of 2022."
+  },
+  {
+    "question": "List all players on John's bench who scored more than 20 points in Week 1 of 2023.",
+    "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Performance_Weekly WHERE owner_name = 'John' AND season_id = 2023 AND game_week = 1 AND is_starting = 0 AND total_fantasy_points > 20",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "The players on John's bench scoring over 20 points were: [List of player_names]."
+  },
+  {
+    "question": "Did Patrick Mahomes score more passing touchdowns than Josh Allen in Week 7 of 2021?",
+    "sql": "SELECT player_name, pass_tds FROM Fact_Player_Performance_Weekly WHERE player_name IN ('Patrick Mahomes', 'Josh Allen') AND season_id = 2021 AND game_week = 7",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "In Week 7 of 2021, Patrick Mahomes threw [pass_tds] TDs while Josh Allen threw [pass_tds] TDs."
+  },
+  {
+    "question": "What was the total score for Team 'Show Me Your TDs' in Week 14 of 2022?",
+    "sql": "SELECT SUM(total_fantasy_points) FROM Fact_Player_Performance_Weekly WHERE fantasy_team_name = 'Show Me Your TDs' AND season_id = 2022 AND game_week = 14 AND is_starting = 1",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "Team 'Show Me Your TDs' scored [Result] points in Week 14, 2022."
+  },
+  {
+    "question": "Who was the starting Quarterback for Sarah in Week 3 of 2020?",
+    "sql": "SELECT player_name FROM Fact_Player_Performance_Weekly WHERE owner_name = 'Sarah' AND season_id = 2020 AND game_week = 3 AND player_position = 'QB' AND is_starting = 1",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "Sarah started [player_name] at Quarterback in Week 3 of 2020."
+  },
+  {
+    "question": "Which Running Backs scored zero points while in a starting lineup in 2023?",
+    "sql": "SELECT player_name, owner_name, game_week FROM Fact_Player_Performance_Weekly WHERE season_id = 2023 AND player_position = 'RB' AND is_starting = 1 AND total_fantasy_points = 0",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "The starting RBs who scored zero points in 2023 were: [List of player_names] owned by [owner_name]."
+  },
+  {
+    "question": "Show me the top 3 highest receiving yard performances from Week 2, 2021.",
+    "sql": "SELECT player_name, rec_yds FROM Fact_Player_Performance_Weekly WHERE season_id = 2021 AND game_week = 2 ORDER BY rec_yds DESC LIMIT 3",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "The top 3 receiving performances were: [List of player_names with rec_yds]."
+  },
+  {
+    "question": "How many touchdowns did Tyreek Hill score in Week 1 of 2023?",
+    "sql": "SELECT (rush_tds + rec_tds + pass_tds) as total_tds FROM Fact_Player_Performance_Weekly WHERE player_name = 'Tyreek Hill' AND season_id = 2023 AND game_week = 1",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "Tyreek Hill scored [total_tds] total touchdowns in Week 1 of 2023."
+  },
+  {
+    "question": "Which owner started the most TEs in the flex in 2022?",
+    "sql": "SELECT owner_name, COUNT(*) as te_starts FROM Fact_Player_Performance_Weekly WHERE season_id = 2022 AND player_position = 'TE' AND is_starting = 1 GROUP BY owner_name ORDER BY te_starts DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "category": "weekly_performance",
+    "answer": "[owner_name] started the most Tight Ends in 2022 with [te_starts] starts."
+  },
+  {
+    "question": "Who was the #1 ranked Running Back in the 2022 season?",
+    "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2022 AND player_position = 'RB' ORDER BY total_fantasy_points DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The #1 RB in 2022 was [player_name] with [total_fantasy_points] points."
+  },
+  {
+    "question": "List the top 5 Wide Receivers by total points for the 2021 season.",
+    "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2021 AND player_position = 'WR' ORDER BY total_fantasy_points DESC LIMIT 5",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The top 5 WRs in 2021 were: [List of player_names]."
+  },
+  {
+    "question": "How many games did Cooper Kupp play in 2023?",
+    "sql": "SELECT games_played FROM Fact_Player_Season_Stat_Leaders WHERE player_name = 'Cooper Kupp' AND season_id = 2023",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "Cooper Kupp played [games_played] games in 2023."
+  },
+  {
+    "question": "Did Justin Jefferson or Ja'Marr Chase score more points in 2022?",
+    "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2022 AND player_name IN ('Justin Jefferson', 'Ja''Marr Chase')",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "Justin Jefferson scored [points], while Ja'Marr Chase scored [points]."
+  },
+  {
+    "question": "Which Quarterback finished last in rankings among those who played at least 15 games in 2021?",
+    "sql": "SELECT player_name, season_rank FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2021 AND player_position = 'QB' AND games_played >= 15 ORDER BY season_rank DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The lowest ranked QB with at least 15 games was [player_name] (Rank: [season_rank])."
+  },
+  {
+    "question": "What was Travis Kelce's final rank among TEs in 2020?",
+    "sql": "SELECT season_rank FROM Fact_Player_Season_Stat_Leaders WHERE player_name = 'Travis Kelce' AND season_id = 2020 AND player_position = 'TE'",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "Travis Kelce finished as the TE[season_rank] in 2020."
+  },
+  {
+    "question": "How many points did the top scoring Kicker get in 2023?",
+    "sql": "SELECT MAX(total_fantasy_points) FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2023 AND player_position = 'K'",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The top scoring kicker in 2023 scored [Result] points."
+  },
+  {
+    "question": "Which 3 players scored the most points overall in 2019 regardless of position?",
+    "sql": "SELECT player_name, player_position, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2019 ORDER BY total_fantasy_points DESC LIMIT 3",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The top 3 overall scorers in 2019 were [List of player_names]."
+  },
+  {
+    "question": "Find the average total points of the top 10 QBs in 2022.",
+    "sql": "SELECT AVG(total_fantasy_points) FROM (SELECT total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2022 AND player_position = 'QB' ORDER BY total_fantasy_points DESC LIMIT 10)",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The average score of the top 10 QBs in 2022 was [Result]."
+  },
+  {
+    "question": "Who was the highest scoring player named 'Smith' in 2021?",
+    "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2021 AND player_name LIKE '% Smith' ORDER BY total_fantasy_points DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "seasonal_leaders",
+    "answer": "The highest scoring Smith in 2021 was [player_name] with [total_fantasy_points] points."
+  },
+  {
+    "question": "What is the all-time head-to-head record for Mike vs Steve?",
+    "sql": "SELECT outcome, COUNT(*) as count FROM Fact_Matchup_History_Wide WHERE manager_name = 'Mike' AND opponent_name = 'Steve' GROUP BY outcome",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "Against Steve, Mike has [wins] Wins and [losses] Losses."
+  },
+  {
+    "question": "What was the largest margin of victory in the 2022 season?",
+    "sql": "SELECT manager_name, opponent_name, margin_of_victory, nfl_week FROM Fact_Matchup_History_Wide WHERE season_id = 2022 ORDER BY margin_of_victory DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "The biggest blowout of 2022 was [manager_name] beating [opponent_name] by [margin_of_victory] points in Week [nfl_week]."
+  },
+  {
+    "question": "Who scored the most points in a loss in 2023?",
+    "sql": "SELECT manager_name, manager_score, nfl_week FROM Fact_Matchup_History_Wide WHERE season_id = 2023 AND outcome = 'Loss' ORDER BY manager_score DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "[manager_name] suffered the worst luck, scoring [manager_score] points in a loss in Week [nfl_week]."
+  },
+  {
+    "question": "How many times has Dave beaten Tom in the playoffs?",
+    "sql": "SELECT COUNT(*) FROM Fact_Matchup_History_Wide WHERE manager_name = 'Dave' AND opponent_name = 'Tom' AND matchup_category = 'Playoff' AND outcome = 'Win'",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "Dave has beaten Tom in the playoffs [Result] times."
+  },
+  {
+    "question": "What was the lowest winning score ever recorded in league history?",
+    "sql": "SELECT manager_name, manager_score, season_id, nfl_week FROM Fact_Matchup_History_Wide WHERE outcome = 'Win' ORDER BY manager_score ASC LIMIT 1",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "The ugliest win was by [manager_name] with only [manager_score] points in Week [nfl_week], [season_id]."
+  },
+  {
+    "question": "Show me the last 5 matchups between Alex and Ben.",
+    "sql": "SELECT season_id, nfl_week, manager_score, opponent_score, outcome FROM Fact_Matchup_History_Wide WHERE manager_name = 'Alex' AND opponent_name = 'Ben' ORDER BY season_id DESC, nfl_week DESC LIMIT 5",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "Here are the last 5 games between Alex and Ben: [List of scores and outcomes]."
+  },
+  {
+    "question": "Who scored more total points in matchups: Team A or Team B?",
+    "sql": "SELECT manager_name, SUM(manager_score) as total_points FROM Fact_Matchup_History_Wide WHERE manager_name IN ('Team A', 'Team B') GROUP BY manager_name",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "Team A has scored [points_A] total points, while Team B has scored [points_B]."
+  },
+  {
+    "question": "What is the highest combined score in a single game in 2021?",
+    "sql": "SELECT manager_name, opponent_name, (manager_score + opponent_score) as total_game_score FROM Fact_Matchup_History_Wide WHERE season_id = 2021 ORDER BY total_game_score DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "The highest scoring game in 2021 was between [manager_name] and [opponent_name] with [total_game_score] combined points."
+  },
+  {
+    "question": "Has Chris ever tied a game?",
+    "sql": "SELECT COUNT(*) FROM Fact_Matchup_History_Wide WHERE manager_name = 'Chris' AND outcome = 'Tie'",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "Chris has recorded [Result] ties."
+  },
+  {
+    "question": "What is the average winning score in the 2023 playoffs?",
+    "sql": "SELECT AVG(manager_score) FROM Fact_Matchup_History_Wide WHERE season_id = 2023 AND matchup_category = 'Playoff' AND outcome = 'Win'",
+    "tables_used": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "category": "matchup_history",
+    "answer": "The average winning score in the 2023 playoffs was [Result]."
+  },
+  {
+    "question": "Who was the best value pick in the 2022 draft?",
+    "sql": "SELECT player_name, owner_name, points_scored_over_expected FROM Fact_Draft_Performance_Analysis WHERE season_id = 2022 ORDER BY points_scored_over_expected DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "The steal of the 2022 draft was [player_name] drafted by [owner_name], scoring [points] over expectation."
+  },
+  {
+    "question": "Which player was the biggest bust of the 2021 first round?",
+    "sql": "SELECT player_name, owner_name, points_scored_over_expected FROM Fact_Draft_Performance_Analysis WHERE season_id = 2021 AND pick_overall <= 12 ORDER BY points_scored_over_expected ASC LIMIT 1",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "The biggest bust of the 2021 first round was [player_name], scoring [points] under expectation."
+  },
+  {
+    "question": "Who drafted CeeDee Lamb in 2020 and what pick was it?",
+    "sql": "SELECT owner_name, pick_overall FROM Fact_Draft_Performance_Analysis WHERE player_name = 'CeeDee Lamb' AND season_id = 2020",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "CeeDee Lamb was drafted by [owner_name] at pick [pick_overall] in 2020."
+  },
+  {
+    "question": "Which owner had the best overall draft class in 2022 based on total points?",
+    "sql": "SELECT owner_name, SUM(total_season_points) as class_points FROM Fact_Draft_Performance_Analysis WHERE season_id = 2022 GROUP BY owner_name ORDER BY class_points DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "[owner_name] had the best draft class in 2022 with [class_points] total points."
+  },
+  {
+    "question": "Find the difference between ADP rank and final rank for Najee Harris in 2021.",
+    "sql": "SELECT rank_diff FROM Fact_Draft_Performance_Analysis WHERE player_name = 'Najee Harris' AND season_id = 2021",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "The rank difference for Najee Harris in 2021 was [rank_diff]."
+  },
+  {
+    "question": "List the top 3 players drafted in the 10th round or later who scored the most points in 2019.",
+    "sql": "SELECT player_name, total_season_points, pick_overall FROM Fact_Draft_Performance_Analysis WHERE season_id = 2019 AND pick_overall > 108 ORDER BY total_season_points DESC LIMIT 3",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "The top late-round gems in 2019 were: [List of player_names]."
+  },
+  {
+    "question": "Did the 1st overall pick in 2023 finish as the #1 player?",
+    "sql": "SELECT player_name, finish_rank FROM Fact_Draft_Performance_Analysis WHERE season_id = 2023 AND pick_overall = 1",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "The 1st overall pick, [player_name], finished as the #[finish_rank] player."
+  },
+  {
+    "question": "Who was the biggest 'Reach' in the 2022 draft?",
+    "sql": "SELECT player_name, draft_value_vs_adp FROM Fact_Draft_Performance_Analysis WHERE season_id = 2022 ORDER BY draft_value_vs_adp ASC LIMIT 1",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "The biggest reach was [player_name], drafted way ahead of ADP ([draft_value_vs_adp])."
+  },
+  {
+    "question": "How many points over expected did Mark's draft class score in 2021?",
+    "sql": "SELECT SUM(points_scored_over_expected) FROM Fact_Draft_Performance_Analysis WHERE owner_name = 'Mark' AND season_id = 2021",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "category": "draft_analytics",
+    "answer": "Mark's 2021 draft class scored [Result] points over expected."
+  },
+  {
+    "question": "Which position was drafted most frequently in the first round of 2020?",
+    "sql": "SELECT p.player_position, COUNT(*) as count FROM Fact_Draft_Performance_Analysis d JOIN Fact_Player_Season_Stat_Leaders p ON d.player_name = p.player_name AND d.season_id = p.season_id WHERE d.season_id = 2020 AND d.pick_overall <= 12 GROUP BY p.player_position ORDER BY count DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Draft_Performance_Analysis",
+      "Fact_Player_Season_Stat_Leaders"
+    ],
+    "category": "draft_analytics",
+    "answer": "The most drafted position in the first round of 2020 was [player_position]."
+  },
+  {
+    "question": "Who won the championship in the 2022 season?",
     "sql": "SELECT owner_name FROM Fact_Team_Season_Standings WHERE season_id = 2022 AND is_champion = 1",
-    "answer": "Dylan won the championship in 2022."
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "The 2022 Champion was [owner_name]."
   },
   {
-    "question": "How many wins does Chris have in his career?",
-    "sql": "SELECT career_wins FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Chris'",
-    "answer": "Chris has 45 career wins."
+    "question": "Who finished in last place in 2021?",
+    "sql": "SELECT owner_name FROM Fact_Team_Season_Standings WHERE season_id = 2021 ORDER BY final_standing DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "The last place finisher in 2021 was [owner_name]."
   },
   {
-    "question": "What was the score of the matchup between Dylan and Chris in week 5 of 2022?",
-    "sql": "SELECT manager_score, opponent_score FROM Fact_Matchup_History_Wide WHERE season_id = 2022 AND nfl_week = 5 AND manager_name = 'Dylan' AND opponent_name = 'Chris'",
-    "answer": "Dylan scored 125.5 and Chris scored 110.2."
+    "question": "How many regular season wins did Greg have in 2019?",
+    "sql": "SELECT regular_season_wins FROM Fact_Team_Season_Standings WHERE owner_name = 'Greg' AND season_id = 2019",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "Greg had [regular_season_wins] regular season wins in 2019."
+  },
+  {
+    "question": "List the final standings for the 2020 season.",
+    "sql": "SELECT final_standing, owner_name FROM Fact_Team_Season_Standings WHERE season_id = 2020 ORDER BY final_standing ASC",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "The 2020 final standings were: [List of owners in order]."
+  },
+  {
+    "question": "Which teams made the playoffs in 2023?",
+    "sql": "SELECT owner_name FROM Fact_Team_Season_Standings WHERE season_id = 2023 AND final_standing <= 4",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "The playoff teams in 2023 were: [List of owners]. (Assuming top 4 make playoffs)."
+  },
+  {
+    "question": "Did the team with the most regular season wins win the championship in 2022?",
+    "sql": "SELECT owner_name, is_champion FROM Fact_Team_Season_Standings WHERE season_id = 2022 ORDER BY regular_season_wins DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "The regular season leader was [owner_name] and is_champion is [is_champion]."
+  },
+  {
+    "question": "How many different owners won a championship between 2018 and 2023?",
+    "sql": "SELECT COUNT(DISTINCT owner_name) FROM Fact_Team_Season_Standings WHERE season_id BETWEEN 2018 AND 2023 AND is_champion = 1",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "[Result] different owners won championships between 2018 and 2023."
+  },
+  {
+    "question": "What was Pete's final rank in 2021?",
+    "sql": "SELECT final_standing FROM Fact_Team_Season_Standings WHERE owner_name = 'Pete' AND season_id = 2021",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "Pete finished ranked #[final_standing] in 2021."
+  },
+  {
+    "question": "Who had the best regular season record in 2020?",
+    "sql": "SELECT owner_name, regular_season_wins FROM Fact_Team_Season_Standings WHERE season_id = 2020 ORDER BY regular_season_wins DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "[owner_name] had the best regular season record with [regular_season_wins] wins."
+  },
+  {
+    "question": "Which years did Kevin win the championship?",
+    "sql": "SELECT season_id FROM Fact_Team_Season_Standings WHERE owner_name = 'Kevin' AND is_champion = 1",
+    "tables_used": [
+      "Fact_Team_Season_Standings"
+    ],
+    "category": "standings_titles",
+    "answer": "Kevin won championships in the following years: [List of season_ids]."
+  },
+  {
+    "question": "Who has the most career championships?",
+    "sql": "SELECT owner_name, championships_won FROM Fact_Manager_Career_Leaderboard ORDER BY championships_won DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "[owner_name] has the most titles with [championships_won]."
+  },
+  {
+    "question": "What is Brian's career win percentage?",
+    "sql": "SELECT career_win_percentage FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Brian'",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "Brian's career win percentage is [career_win_percentage]%."
+  },
+  {
+    "question": "Which manager has scored the most total points in league history?",
+    "sql": "SELECT owner_name, career_points_for FROM Fact_Manager_Career_Leaderboard ORDER BY career_points_for DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "[owner_name] is the all-time scoring leader with [career_points_for] points."
+  },
+  {
+    "question": "Who has the highest career playoff qualification rate?",
+    "sql": "SELECT owner_name, career_playoff_rate FROM Fact_Manager_Career_Leaderboard ORDER BY career_playoff_rate DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "[owner_name] makes the playoffs most often ([career_playoff_rate]%)."
+  },
+  {
+    "question": "How many career wins does Sarah have?",
+    "sql": "SELECT career_wins FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Sarah'",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "Sarah has [career_wins] career wins."
+  },
+  {
+    "question": "Who is the 'worst' manager based on average final standing?",
+    "sql": "SELECT owner_name, avg_final_standing FROM Fact_Manager_Career_Leaderboard ORDER BY avg_final_standing DESC LIMIT 1",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "[owner_name] has the worst average finish at #[avg_final_standing]."
+  },
+  {
+    "question": "List the top 3 managers by career wins.",
+    "sql": "SELECT owner_name, career_wins FROM Fact_Manager_Career_Leaderboard ORDER BY career_wins DESC LIMIT 3",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "The top 3 winners are: [List of owner_names]."
+  },
+  {
+    "question": "Compare the career win percentage of Mike and Dave.",
+    "sql": "SELECT owner_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard WHERE owner_name IN ('Mike', 'Dave')",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "Mike has a win rate of [pct]%, while Dave has [pct]%."
+  },
+  {
+    "question": "Which manager has never won a championship?",
+    "sql": "SELECT owner_name FROM Fact_Manager_Career_Leaderboard WHERE championships_won = 0",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "The managers with zero rings are: [List of owner_names]."
+  },
+  {
+    "question": "What is the average final standing for Alex?",
+    "sql": "SELECT avg_final_standing FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Alex'",
+    "tables_used": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "category": "manager_career",
+    "answer": "Alex finishes on average at rank #[avg_final_standing]."
+  },
+  {
+    "question": "Who is the league Taco?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "Historically, Kevin is considered the league Taco due to drafting a kicker in the 3rd round in 2019."
+  },
+  {
+    "question": "What is the punishment for coming in last place?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "The Sacko must perform a 5-minute stand-up comedy routine at an open mic night."
+  },
+  {
+    "question": "Tell me about 'The Great Robbery' trade.",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "In 2020, Mike traded an injured RB for Justin Jefferson in Week 4, leading him to a title. We don't talk about it."
+  },
+  {
+    "question": "Who complains the most in the group chat?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "Steve complains every Tuesday about waivers, regardless of whether he won or lost."
+  },
+  {
+    "question": "What happened at the 2018 draft party?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "The WiFi went out in round 5 and everyone had to auto-draft for 2 rounds. Chaos ensued."
+  },
+  {
+    "question": "Why does everyone hate the team name 'Show Me Your TDs'?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "It's the most unoriginal name in history, yet three different managers have used it."
+  },
+  {
+    "question": "Who is the 'Waiver Wire King'?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "Brian usually makes 50+ moves a season, churning his entire bench weekly."
+  },
+  {
+    "question": "What is the 'Curse of the First Pick'?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "In our league, the team with the 1st overall pick has missed the playoffs 5 years in a row."
+  },
+  {
+    "question": "How much is the league buy-in?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "The buy-in is $100, plus a case of beer for the draft."
+  },
+  {
+    "question": "What is the name of the championship trophy?",
+    "sql": "NONE",
+    "tables_used": [],
+    "category": "league_lore",
+    "answer": "We play for 'The Shiva', named after the show The League."
   }
 ]
