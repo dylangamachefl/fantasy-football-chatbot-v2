@@ -251,6 +251,11 @@ export class Agent {
           slotSpan?.end?.({ output: "Failed to parse", level: "WARNING" });
         }
 
+        // 0.55 Determine if this is a personal query (Context Gating)
+        const isPersonalQuery = this.workingMemory.Manager === this.identity
+          || userQuery.toLowerCase().match(/\b(me|my|i|myself)\b/) !== null;
+        console.log("[Agent] Personal Query:", isPersonalQuery);
+
         // 0.6 Pre-Retrieval for Schema Clues (Phase 3)
         this.addThought("Searching for schema clues... ");
         const preRetrieval = await workerRequest(ragWorker, 'RETRIEVE', {
@@ -291,8 +296,11 @@ export class Agent {
 
         const relevantLore = loreFacts.filter((f: any) => f.score > 0.6);
         let loreContext = relevantLore.map((f: any) => `${f.topic}: ${f.context}`).join('\n');
-        if (this.managerBio) {
-          loreContext = `CONTEXT ON USER (${this.identity}): ${this.managerBio}\n\n${loreContext}`;
+
+        // Only inject manager bio for personal queries (Context Gating)
+        if (isPersonalQuery && this.managerBio) {
+          loreContext = `[USER INFO]\nCONTEXT ON USER (${this.identity}): ${this.managerBio}\n\n${loreContext}`;
+          this.addThought(`Personal query detected - using manager context.`);
         }
         if (relevantLore.length > 0) this.addThought(`Found ${relevantLore.length} lore facts.`);
 

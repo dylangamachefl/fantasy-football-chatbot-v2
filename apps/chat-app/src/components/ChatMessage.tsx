@@ -11,6 +11,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message, isLast, onFeedback }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null);
 
   const handleCopySql = () => {
     if (message.sql) {
@@ -18,6 +19,12 @@ export function ChatMessage({ message, isLast, onFeedback }: ChatMessageProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleFeedbackClick = (value: number) => {
+    const feedbackType = value === 1 ? 'up' : 'down';
+    setFeedbackGiven(feedbackType);
+    onFeedback(value);
   };
 
   return (
@@ -43,21 +50,21 @@ export function ChatMessage({ message, isLast, onFeedback }: ChatMessageProps) {
 
         {message.sql && (
           <div className="mt-6 bg-black/50 rounded-2xl border border-gray-800 font-mono text-sm overflow-hidden">
-             <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-gray-900/50">
-               <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between p-3 border-b border-gray-800 bg-gray-900/50">
+              <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-emerald-500" />
                 <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">Live SQL Query Execution</span>
-               </div>
-               <button
-                  onClick={handleCopySql}
-                  className="text-gray-500 hover:text-white transition-colors"
-                  title="Copy SQL"
-               >
-                 {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-               </button>
-             </div>
+              </div>
+              <button
+                onClick={handleCopySql}
+                className="text-gray-500 hover:text-white transition-colors"
+                title="Copy SQL"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
             <div className="p-4 overflow-x-auto">
-               <code className="text-emerald-400">{message.sql}</code>
+              <code className="text-emerald-400">{message.sql}</code>
             </div>
           </div>
         )}
@@ -89,19 +96,39 @@ export function ChatMessage({ message, isLast, onFeedback }: ChatMessageProps) {
               </table>
             </div>
             {message.data.length > 20 && (
-               <div className="bg-gray-950/50 p-3 text-center text-[10px] font-bold text-gray-600 border-t border-gray-800 uppercase tracking-widest">
-                 Showing {message.data.length} Rows
-               </div>
+              <div className="bg-gray-950/50 p-3 text-center text-[10px] font-bold text-gray-600 border-t border-gray-800 uppercase tracking-widest">
+                Showing {message.data.length} Rows
+              </div>
             )}
           </div>
         )}
 
         {message.role === 'assistant' && isLast && (
           <div className="mt-6 flex items-center justify-end gap-4 border-t border-gray-800/50 pt-4">
-            <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Reception Check?</span>
+            <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+              {feedbackGiven ? (feedbackGiven === 'up' ? 'Thanks! ✓' : 'Noted ✓') : 'Reception Check?'}
+            </span>
             <div className="flex gap-2">
-              <button onClick={() => onFeedback(1)} className="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg transition-all group"><ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" /></button>
-              <button onClick={() => onFeedback(-1)} className="p-2 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-all group"><ThumbsDown className="w-5 h-5 group-hover:scale-110 transition-transform" /></button>
+              <button
+                onClick={() => handleFeedbackClick(1)}
+                className={`p-2 rounded-lg transition-all group ${feedbackGiven === 'up'
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'hover:bg-emerald-500/10 hover:text-emerald-400'
+                  }`}
+                disabled={feedbackGiven !== null}
+              >
+                <ThumbsUp className={`w-5 h-5 transition-transform ${feedbackGiven !== 'up' ? 'group-hover:scale-110' : ''}`} />
+              </button>
+              <button
+                onClick={() => handleFeedbackClick(-1)}
+                className={`p-2 rounded-lg transition-all group ${feedbackGiven === 'down'
+                    ? 'bg-red-500/20 text-red-400'
+                    : 'hover:bg-red-500/10 hover:text-red-400'
+                  }`}
+                disabled={feedbackGiven !== null}
+              >
+                <ThumbsDown className={`w-5 h-5 transition-transform ${feedbackGiven !== 'down' ? 'group-hover:scale-110' : ''}`} />
+              </button>
             </div>
           </div>
         )}

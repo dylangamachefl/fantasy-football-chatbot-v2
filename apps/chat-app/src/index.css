@@ -40,6 +40,26 @@ body {
   scrollbar-width: none;
 }
 
+/* Styled Scrollbar for Chat */
+.scrollbar-styled::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-styled::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.5);
+  border-radius: 4px;
+}
+.scrollbar-styled::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+}
+.scrollbar-styled::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+.scrollbar-styled {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.5) rgba(17, 24, 39, 0.5);
+}
+
 /* Glowing Border for Breaking News */
 .breaking-news-glow {
   border: 2px solid var(--color-sd-gold);

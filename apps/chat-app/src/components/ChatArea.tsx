@@ -23,8 +23,8 @@ export function ChatArea({ messages, status, input, setInput, handleSubmit, hand
   };
 
   return (
-    <div className="flex-1 flex flex-col relative bg-[linear-gradient(to_bottom,rgba(10,14,26,0.8),rgba(10,14,26,1)),url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-      <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
+    <div className="flex-1 flex flex-col min-h-0 relative bg-[linear-gradient(to_bottom,rgba(10,14,26,0.8),rgba(10,14,26,1)),url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8 scrollbar-styled">
         <div className="max-w-4xl mx-auto space-y-8 pb-12">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full py-20 text-center opacity-50">

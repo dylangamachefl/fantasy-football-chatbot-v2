@@ -146,7 +146,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen bg-gray-950 text-white flex flex-col overflow-hidden font-sans selection:bg-blue-500/30">
+    <div className="h-screen bg-gray-950 text-white flex flex-col font-sans selection:bg-blue-500/30">
       <Header
         status={status}
         managerIdentity={managerIdentity}
@@ -155,7 +155,7 @@ function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex relative">
+      <div className="flex-1 flex relative overflow-hidden">
         <SidePanel thoughts={thoughts} isOpen={isSidePanelOpen} />
 
         <div className="flex-1 flex flex-col min-w-0 relative">
