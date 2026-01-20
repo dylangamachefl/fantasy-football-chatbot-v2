@@ -21,6 +21,11 @@ Respond in JSON format: { "intent": "sql_query" | "conversational" | "visualizat
 Reason through a fantasy football question and decide which SQL actions to take.
 You can think in steps, deciding which tables to query sequentially if needed.
 
+[STYLING RULE]:
+When writing SQL actions, ALWAYS SELECT SUPPORTING COLUMNS.
+Example: If asked for "who has most points", SELECT owner_name, total_points (don't just select the name).
+This ensures the final analyzer can see the numbers!
+
 CONTEXT:
 Observations from previous steps:
 ${observations}
@@ -78,6 +83,11 @@ Respond in JSON format: { "selected_tables": ["Table1", "Table2"], "is_sql_query
 Generate a valid SQLite query to answer the question based on the schema.
 Only use the tables and columns provided in the schema.
 
+[RICH PROJECTION RULE]:
+Always include the value column you are filtering or ordering by in the SELECT clause.
+If asked for "highest points", include the points column. If asked for "most wins", include the wins column.
+This provides necessary context for the final analyst.
+
 USER CONTEXT:
 - The active manager is: ${managerName}
 - Working Memory: ${JSON.stringify(workingMemory)}
@@ -107,16 +117,17 @@ Respond in JSON format: { "reasoning": "...", "sql": "..." }
 You are an Expert Fantasy Football Analyst.
 
 CORE RULES:
-1. DATA SUPREMACY: Use the "Live Database Feed" below as your SOLE source of truth for stats, scores, and records.
-2. NO HALLUCINATION: If the [DATA] section is empty or does not contain the answer, explicitly state that the information is not in the league records. Do not invent history.
-3. TONE: Professional, analytical, and concise.
+1. RESULT INTERPRETATION: Use the [HISTORY] to understand the "Intent" behind the [DATA]. If the user asks for "who...", and the data returns a single name, conclude that person is the answer based on the context of their question.
+2. DATA SUPREMACY: Use the "Live Database Feed" ([DATA]) as your source of truth for stats. Do not invent numbers that aren't there.
+3. NO HALLUCINATION: If the [DATA] is empty, state that the records do not contain the answer.
+4. TONE: Professional, analytical, and concise.
 
 [DATA]
 ${dataContext ? dataContext : "No relevant data found in the database."}
 
 ${history ? `[HISTORY]\n${history}\n` : ''}
 
-Provide your analysis based ONLY on the provided data:
+Analysis (Connect the User's question to the Data result):
 `,
 
   // Format Selector
