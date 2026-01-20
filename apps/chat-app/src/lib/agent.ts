@@ -12,6 +12,12 @@ export const VALID_OWNER_NAMES = [
   "Lac", "Will", "Josh", "Jake", "Fitz", "Mark", "Nick"
 ];
 
+const DB_ENTITY_MAP = `
+- MANAGERS: Tracked for Championships, Career Wins, Final Standings, Draft Value.
+- PLAYERS: Tracked for Points, Passing/Rushing/Receiving Stats, Weekly Performance.
+- MATCHUPS: Tracked for head-to-head scores and margins.
+`;
+
 // Worker Interfaces
 const dbWorker = new Worker(new URL('../workers/db.worker.ts', import.meta.url), { type: 'module' });
 const llmWorker = new Worker(new URL('../workers/llm.worker.ts', import.meta.url), { type: 'module' });
@@ -90,7 +96,8 @@ export class Agent {
     Manager: "None",
     Season: "None",
     Player: "None",
-    Week: "None"
+    Week: "None",
+    EntityType: "None"
   };
 
   private lastTraceId: string | null = null;
@@ -257,15 +264,26 @@ export class Agent {
           slotSpan?.end?.({ output: "Failed to parse", level: "WARNING" });
         }
 
-        // 0.6 Phase 6: Query Enhancement with Memory
+        // 0.6 Pre-Retrieval for Schema Clues (Phase 3)
+        this.addThought("Searching for schema clues... ");
+        const preRetrieval = await workerRequest(ragWorker, 'RETRIEVE', {
+          query: userQuery,
+          collection: 'SQL',
+          k: 1
+        });
+        const schemaHint = preRetrieval.length > 0 ? `Relevant Table Hint: ${preRetrieval[0].table_name}` : "";
+
+        // 0.7 Query Enhancement with Memory & Schema Hints
         let activeQuery = userQuery;
         this.addThought("Resolving context... ");
         const historyStr = history.slice(-5).map(m => `${m.role}: ${m.content}${m.sql ? ` (Used SQL: ${m.sql})` : ''}`).join('\n');
         const enhancedQueryPrompt = `
-        ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, this.identity || "Unknown Manager")}
-        CURRENT ENTITIES IN MEMORY: ${memoryStr}
-        Ensure the rewritten query includes these entities if they are relevant to the user's pronouns or follow-up.
-      `;
+          ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, this.identity || "Unknown Manager", DB_ENTITY_MAP)}
+          
+          ${schemaHint ? `SCHEMA HINT: ${schemaHint}` : ""}
+          CURRENT ENTITIES IN MEMORY: ${JSON.stringify(this.workingMemory)}
+          Ensure the rewritten query includes these entities if they are relevant to the user's pronouns or follow-up.
+        `;
 
         const enhancementSpan = trace?.span?.({ name: 'query-enhancement', input: enhancedQueryPrompt });
         activeQuery = await workerRequest(llmWorker, 'GENERATE', {
@@ -340,9 +358,24 @@ export class Agent {
             this.addThought(retries > 0 ? "Retrying SQL generation..." : "Generating SQL...");
 
             const genSpan = sqlLoopSpan?.span?.({ name: `sql-gen-attempt-${retries}`, input: { lastError } });
-            sql = await workerRequest(llmWorker, 'GENERATE', {
-              messages: [{ role: 'user', content: PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examplesStr) }]
+            const sqlOutput = await workerRequest(llmWorker, 'GENERATE', {
+              messages: [{ role: 'user', content: PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examplesStr) }],
+              jsonMode: true
             }, undefined, genSpan);
+
+            try {
+              const parsed = typeof sqlOutput === 'string' ? JSON.parse(sqlOutput) : sqlOutput;
+              sql = parsed.sql || "";
+              const reasoning = parsed.reasoning || "";
+
+              if (reasoning) {
+                this.addThought(`Plan: ${reasoning}`);
+              }
+            } catch (e) {
+              console.warn("[Agent] SQL generator failed to parse JSON, falling back to raw string");
+              sql = typeof sqlOutput === 'string' ? sqlOutput : JSON.stringify(sqlOutput);
+            }
+
             sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
 
             const validation = await workerRequest(dbWorker, 'VALIDATE_SQL', { sql }, undefined, genSpan);

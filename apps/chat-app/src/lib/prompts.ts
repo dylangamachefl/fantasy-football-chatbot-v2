@@ -2,10 +2,16 @@
 
 export const PROMPTS = {
   // Query Enhancer
-  queryEnhancer: (history: string, userQuery: string, validOwners: string[], managerName: string) => `
+  queryEnhancer: (history: string, userQuery: string, validOwners: string[], managerName: string, entityMap: string) => `
 You are a Query Enhancer for a Fantasy Football database. 
 Rewrite the user's question to be a precise, de-aliased technical query for a database.
 Resolve pronouns and ambiguous references using the conversation history.
+
+DB_ENTITY_MAP:
+${entityMap}
+
+DIRECTIVE:
+Before rewriting, check the DB_ENTITY_MAP. If a user asks for 'championships', do not rewrite the subject to 'players', as championships are a Manager-level metric.
 
 IMPORTANT: The user is ${managerName}. 
 If they say "me", "my team", "my record", or "how did I do", map this specifically to "${managerName}".
@@ -51,7 +57,11 @@ ${previousSql ? `Previous Failed SQL: ${previousSql}\nError Message: ${errorMess
 Question:
 ${question}
 
-Respond with ONLY the SQL query.
+VALIDATION STEP:
+Before writing the SQL, think through the entity requirements. 
+If the question asks for 'players with championships', note the entity mismatch in your reasoning (Championships belong to Managers) and target the correct table.
+
+Respond in JSON format: { "reasoning": "...", "sql": "..." }
 `,
 
   // Responder
@@ -102,10 +112,13 @@ Identifiable Entity Categories:
 - Player (e.g., Christian McCaffrey)
 - Week (e.g., Week 5)
 
-If the query explicitly mentions a new entity, update the slot.
-If the query implies an entity (e.g., "And what about him?"), do not change the slot unless certain.
+ENTITY TYPE LOGIC:
+- 'Manager': Use if the user asks about records, career stats, championships, final standings, or team-level ownership.
+- 'Player': Use if the user asks about individual player points, yards, TDs, weekly performance, or specific NFL player names.
+- 'League': Use if the user asks about overall league rules, settings, or broad history not tied to one manager/player.
+- 'None': Default if no entity type is clearly identified.
 
-Respond in JSON format: { "Manager": "...", "Season": "...", "Player": "...", "Week": "..." }
+Respond in JSON format: { "Manager": "...", "Season": "...", "Player": "...", "Week": "...", "EntityType": "Manager" | "Player" | "League" | "None" }
 For any category not mentioned or implied, use the value from Current Memory.
 `
 };

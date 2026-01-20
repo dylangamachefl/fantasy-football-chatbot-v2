@@ -18,4 +18,5 @@ export type WorkingMemory = {
   Season: string;
   Player: string;
   Week: string;
+  EntityType: 'Manager' | 'Player' | 'League' | 'None'; // New Field
 };
