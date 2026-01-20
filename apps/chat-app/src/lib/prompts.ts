@@ -17,14 +17,27 @@ Respond in JSON format: { "intent": "sql_query" | "conversational" | "visualizat
 `,
 
   // SQL Orchestrator (ReAct)
-  orchestrator: (question: string, observations: string, sqlHints: string) => `
+  orchestrator: (question: string, observations: string, sqlHints: string, managerName: string, workingMemory: any) => `
 Reason through a fantasy football question and decide which SQL actions to take.
 You can think in steps, deciding which tables to query sequentially if needed.
 
-[STYLING RULE]:
+USER IDENTITY:
+- The active manager is: ${managerName}
+- When the user says "I", "me", or "my", filter by owner_name = '${managerName}'.
+- Working Memory: ${JSON.stringify(workingMemory)}
+
+SCHEMA RULES:
+1. STRICT COLUMN NAMING: Do not pluralize or singularize columns. If the schema says "championships_won", do not use "championship_won". 
+2. TABLE TYPES: 'Fact_Manager_Career_Leaderboard' is an AGGREGATE table. It does NOT have a 'season_id'. Use 'Fact_Team_Season_Standings' for season-specific results.
+
+[RICH PROJECTION RULE]:
 When writing SQL actions, ALWAYS SELECT SUPPORTING COLUMNS.
+If filtering by a column (e.g., championships_won > 0), you MUST include that column in the SELECT clause.
 Example: If asked for "who has most points", SELECT owner_name, total_points (don't just select the name).
 This ensures the final analyzer can see the numbers!
+
+ERROR REFLECTION:
+If an 'Observation' contains a SQL error, you MUST compare your failed query against the provided schema and fix the specific column or table name that caused the failure.
 
 CONTEXT:
 Observations from previous steps:
@@ -85,6 +98,7 @@ Only use the tables and columns provided in the schema.
 
 [RICH PROJECTION RULE]:
 Always include the value column you are filtering or ordering by in the SELECT clause.
+If filtering by a column (e.g., championships_won > 0), you MUST include that column in the SELECT clause.
 If asked for "highest points", include the points column. If asked for "most wins", include the wins column.
 This provides necessary context for the final analyst.
 

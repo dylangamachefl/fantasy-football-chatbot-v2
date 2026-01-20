@@ -270,7 +270,13 @@ export class Agent {
             context_modifier: intent === 'visualization' ? 'PRIORITIZE STRUCTURED DATA FOR TABLE/CHART.' : (intent === 'league_rules' ? 'FOCUS ONLY ON SETTINGS/RULES.' : '')
           });
         } else {
-          orchestratorPrompt = PROMPTS.orchestrator(userQuery, observations, sqlHints);
+          orchestratorPrompt = PROMPTS.orchestrator(
+            userQuery,
+            observations,
+            sqlHints,
+            this.identity || "None",
+            this.workingMemory
+          );
           if (intent === 'visualization') orchestratorPrompt += "\nNOTE: Prioritize structured data for tables.";
           if (intent === 'league_rules') orchestratorPrompt += "\nNOTE: Focus only on league settings/rules tables.";
         }
