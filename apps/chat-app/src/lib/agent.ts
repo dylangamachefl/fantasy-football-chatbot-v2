@@ -1,11 +1,6 @@
 import { PROMPTS } from './prompts';
-import { LangfuseWeb } from 'langfuse';
+import Logger from './logger';
 import type { Message, AgentState, WorkingMemory } from '../types';
-
-const langfuse = new LangfuseWeb({
-  publicKey: "pk-lf-05fea78a-def0-4143-847d-f9b06912f701",
-  baseUrl: "https://cloud.langfuse.com",
-});
 
 export const VALID_OWNER_NAMES = [
   "Dylan", "Dan", "Zach", "Chris", "Sean", "Jack",
@@ -100,10 +95,11 @@ export class Agent {
     EntityType: "None"
   };
 
-  private lastTraceId: string | null = null;
+
   private identity: string | null = localStorage.getItem('ff_manager_identity');
   private managerBio: string | null = null;
   private isProcessing: boolean = false;
+  private lastQueryId: string | null = null;  // For linking feedback to queries
 
   constructor(onStateChange: (state: AgentState) => void) {
     this.onStateChange = onStateChange;
@@ -213,22 +209,13 @@ export class Agent {
     this.isProcessing = true;
 
     try {
+      const startTime = Date.now();  // Track query duration
       this.setState({ status: 'thinking', thoughts: [], error: undefined });
       const memoryStr = JSON.stringify(this.workingMemory);
 
-      // Optional Langfuse tracing
-      let trace: any = null;
-      try {
-        if (typeof (langfuse as any).trace === 'function') {
-          trace = (langfuse as any).trace({
-            name: 'agent-process-query',
-            input: { userQuery, history, workingMemory: this.workingMemory },
-          });
-          this.lastTraceId = trace?.id || null;
-        }
-      } catch (e) {
-        console.warn('[Agent] Langfuse tracing unavailable:', e);
-      }
+      // Langfuse tracing disabled: LangfuseWeb doesn't support server-side trace() API
+      // To enable tracing, you need to proxy traces through a backend server
+      const trace: any = null;
 
       try {
         // 0. Conversational Check
@@ -431,6 +418,19 @@ export class Agent {
 
         this.setState({ status: 'idle' });
         trace?.end?.({ output: answer, metadata: { thoughts: this.state.thoughts, memory: this.workingMemory } });
+
+        // Log query for analysis and teacher-student flywheel
+        this.lastQueryId = Logger.logQuery({
+          userQuery,
+          workingMemory: this.workingMemory,
+          sqlGenerated: sql,
+          dataRows: data.length,
+          answer,
+          durationMs: Date.now() - startTime,
+          thoughtProcess: [...this.state.thoughts],  // Copy thoughts
+          tablesUsed: selectedTables
+        });
+
         return { answer, data, sql };
 
       } catch (err: any) {
@@ -445,13 +445,12 @@ export class Agent {
   }
 
   async scoreLastTrace(value: number, comment?: string) {
-    if (!this.lastTraceId) return;
+    if (!this.lastQueryId) {
+      console.warn('[Agent] No query ID to link feedback to');
+      return;
+    }
 
-    langfuse.score({
-      traceId: this.lastTraceId,
-      name: "user-feedback",
-      value: value,
-      comment: comment
-    });
+    Logger.logFeedback(this.lastQueryId, value, comment);
+    console.log('[Agent] Feedback logged:', { queryId: this.lastQueryId, value, comment });
   }
 }
