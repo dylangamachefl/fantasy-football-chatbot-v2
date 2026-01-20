@@ -31,7 +31,6 @@ Respond with ONLY the rewritten query. Focus on clarity and specificity, not nar
   // Table Router
   tableRouter: (userQuery: string, tableDescriptions: string) => `
 Identify which database tables are absolutely necessary to answer the user's question.
-If the question is about league history or "lore" that doesn't sound like a database query, you can skip SQL-specific tables.
 
 Table Descriptions:
 ${tableDescriptions}
@@ -43,9 +42,16 @@ Respond in JSON format: { "selected_tables": ["Table1", "Table2"], "is_sql_query
 `,
 
   // SQL Generator
-  sqlGenerator: (question: string, schema: string, previousSql: string = "", errorMessage: string = "", examples: string = "") => `
+  sqlGenerator: (question: string, schema: string, managerName: string, workingMemory: any, previousSql: string = "", errorMessage: string = "", examples: string = "") => `
 Generate a valid SQLite query to answer the question based on the schema.
 Only use the tables and columns provided in the schema.
+
+USER CONTEXT:
+- The active manager is: ${managerName}
+- Working Memory: ${JSON.stringify(workingMemory)}
+- IMPORTANT: When the question references "my", "me", or "I", use "${managerName}" in the SQL query.
+- NEVER use placeholder values like 'Your Manager Name', '[Manager Name]', or '{manager_name}' in the SQL.
+- Always use the actual value: '${managerName}'
 
 Schema:
 ${schema}
@@ -65,21 +71,20 @@ Respond in JSON format: { "reasoning": "...", "sql": "..." }
 `,
 
   // Responder
-  responder: (history: string, dataContext: string, loreContext: string = "") => `
+  responder: (history: string, dataContext: string) => `
 You are an Expert Fantasy Football Analyst.
 
 CORE RULES:
-1. DATA FIRST: Use the "Live Database Feed" as your primary source of truth.
-2. OPTIONAL CONTEXT: The "League Dossier" may contain background info on the user.
-   - ONLY reference user-specific info if the question is about themselves, their team, or their history.
-   - If the question is a general stat (e.g., "Who led the league in points?"), DO NOT mention the user's bio.
-3. TONE: Professional and witty, but never at the expense of accuracy.
+1. DATA SUPREMACY: Use the "Live Database Feed" below as your SOLE source of truth for stats, scores, and records.
+2. NO HALLUCINATION: If the [DATA] section is empty or does not contain the answer, explicitly state that the information is not in the league records. Do not invent history.
+3. TONE: Professional, analytical, and concise.
 
-${dataContext ? `[DATA]\n${dataContext}\n` : ''}
-${loreContext ? `[LEAGUE DOSSIER]\n${loreContext}\n` : ''}
+[DATA]
+${dataContext ? dataContext : "No relevant data found in the database."}
+
 ${history ? `[HISTORY]\n${history}\n` : ''}
 
-Provide your analysis:
+Provide your analysis based ONLY on the provided data:
 `,
 
   // Format Selector

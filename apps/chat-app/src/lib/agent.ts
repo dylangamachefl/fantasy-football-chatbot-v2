@@ -97,7 +97,6 @@ export class Agent {
 
 
   private identity: string | null = localStorage.getItem('ff_manager_identity');
-  private managerBio: string | null = null;
   private isProcessing: boolean = false;
   private lastQueryId: string | null = null;  // For linking feedback to queries
 
@@ -109,7 +108,7 @@ export class Agent {
   }
 
   private setState(update: Partial<AgentState>) {
-    this.state = { ...this.state, ...update, identity: this.identity || undefined, managerBio: this.managerBio || undefined };
+    this.state = { ...this.state, ...update, identity: this.identity || undefined };
     this.onStateChange(this.state);
   }
 
@@ -160,10 +159,7 @@ export class Agent {
 
       await Promise.all([p1, p2, p3]);
 
-      // Bio Fetch
-      if (this.identity) {
-        await this.fetchManagerBio();
-      }
+      // Bio Fetch removed - focusing on database-driven facts only
 
       this.setState({ status: 'idle', thoughts: ['System Ready. Transmission Secured.'] });
     } catch (err: any) {
@@ -172,22 +168,7 @@ export class Agent {
     }
   }
 
-  private async fetchManagerBio() {
-    try {
-      this.addThought(`Retrieving dossier for ${this.identity}...`);
-      const sql = `SELECT * FROM Fact_Manager_Career_Leaderboard WHERE owner_name = '${this.identity}'`;
-      const response = await workerRequest(dbWorker, 'EXEC_SQL', { sql });
-      const data = Array.isArray(response) ? response : response.rows;
 
-      if (data && data.length > 0) {
-        const bio = data[0];
-        this.managerBio = `Manager ${bio.owner_name} has ${bio.career_wins} career wins (${(bio.career_win_percentage * 100).toFixed(1)}% win rate) and ${bio.championships_won} championships. Average finish: ${bio.avg_final_standing}.`;
-        console.log("[Agent] Manager Bio Loaded:", this.managerBio);
-      }
-    } catch (e) {
-      console.warn("[Agent] Failed to fetch manager bio:", e);
-    }
-  }
 
   private isAnalyticalQuery(query: string): boolean {
     const lower = query.toLowerCase().trim();
@@ -243,6 +224,12 @@ export class Agent {
         }, undefined, slotSpan);
         try {
           const parsedMemory = typeof slotFillerOutput === 'string' ? JSON.parse(slotFillerOutput) : slotFillerOutput;
+
+          // Preserve identity: Don't let the slot filler reset Manager to "None" if we have an identity
+          if (this.identity && parsedMemory.Manager === "None") {
+            parsedMemory.Manager = this.identity;
+          }
+
           this.workingMemory = { ...this.workingMemory, ...parsedMemory };
           console.log("[Agent] Working Memory Updated:", this.workingMemory);
           slotSpan?.end?.({ output: parsedMemory });
@@ -269,8 +256,12 @@ export class Agent {
         let activeQuery = userQuery;
         this.addThought("Resolving context... ");
         const historyStr = history.slice(-5).map(m => `${m.role}: ${m.content}${m.sql ? ` (Used SQL: ${m.sql})` : ''}`).join('\n');
+
+        // Use working memory for manager name (falls back to identity if not set)
+        const managerName = this.workingMemory.Manager !== "None" ? this.workingMemory.Manager : (this.identity || "Unknown Manager");
+
         const enhancedQueryPrompt = `
-          ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, this.identity || "Unknown Manager", DB_ENTITY_MAP)}
+          ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, managerName, DB_ENTITY_MAP)}
           
           ${schemaHint ? `SCHEMA HINT: ${schemaHint}` : ""}
           CURRENT ENTITIES IN MEMORY: ${JSON.stringify(this.workingMemory)}
@@ -284,25 +275,14 @@ export class Agent {
         }, (chunk) => this.addThoughtChunk(chunk), enhancementSpan);
         enhancementSpan?.end?.({ output: activeQuery });
 
-        // 1. Parallel RAG Retrieval (SQL & LORE)
+        // 1. RAG Retrieval (SQL only - lore removed for data supremacy)
         this.addThought("Retrieving knowledge... ");
         const ragSpan = trace?.span?.({ name: 'rag-retrieval', input: { query: activeQuery } });
         const ragResults = await workerRequest(ragWorker, 'RETRIEVE_BATCH', [
-          { query: activeQuery, collection: 'SQL', k: 3 },
-          { query: activeQuery, collection: 'LORE', k: 3 }
+          { query: activeQuery, collection: 'SQL', k: 3 }
         ], undefined, ragSpan);
-        const [sqlExamples, loreFacts] = ragResults;
-        ragSpan?.end?.({ output: { sqlExamplesCount: sqlExamples.length, loreFactsCount: loreFacts.length } });
-
-        const relevantLore = loreFacts.filter((f: any) => f.score > 0.6);
-        let loreContext = relevantLore.map((f: any) => `${f.topic}: ${f.context}`).join('\n');
-
-        // Only inject manager bio for personal queries (Context Gating)
-        if (isPersonalQuery && this.managerBio) {
-          loreContext = `[USER INFO]\nCONTEXT ON USER (${this.identity}): ${this.managerBio}\n\n${loreContext}`;
-          this.addThought(`Personal query detected - using manager context.`);
-        }
-        if (relevantLore.length > 0) this.addThought(`Found ${relevantLore.length} lore facts.`);
+        const [sqlExamples] = ragResults;
+        ragSpan?.end?.({ output: { sqlExamplesCount: sqlExamples.length } });
 
         // 2. Table Routing & Dynamic Schema Pruning
         this.addThought("Selecting tables... ");
@@ -353,8 +333,12 @@ export class Agent {
             this.addThought(retries > 0 ? "Retrying SQL generation..." : "Generating SQL...");
 
             const genSpan = sqlLoopSpan?.span?.({ name: `sql-gen-attempt-${retries}`, input: { lastError } });
+
+            // Pass manager name and working memory to SQL generator for context
+            const sqlPrompt = PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, managerName, this.workingMemory, sql, lastError, examplesStr);
+
             const sqlOutput = await workerRequest(llmWorker, 'GENERATE', {
-              messages: [{ role: 'user', content: PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, sql, lastError, examplesStr) }],
+              messages: [{ role: 'user', content: sqlPrompt }],
               jsonMode: true
             }, undefined, genSpan);
 
@@ -372,6 +356,14 @@ export class Agent {
             }
 
             sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
+
+            // Safety: Replace common placeholders with actual manager name
+            if (managerName && managerName !== "None" && managerName !== "Unknown Manager") {
+              sql = sql.replace(/'Your Manager Name'/gi, `'${managerName}'`);
+              sql = sql.replace(/"Your Manager Name"/gi, `"${managerName}"`);
+              sql = sql.replace(/\[Manager Name\]/gi, managerName);
+              sql = sql.replace(/'\{manager_name\}'/gi, `'${managerName}'`);
+            }
 
             const validation = await workerRequest(dbWorker, 'VALIDATE_SQL', { sql }, undefined, genSpan);
             if (validation.valid) {
@@ -417,9 +409,9 @@ export class Agent {
         this.addThought("Answering... ");
         const dataStr = JSON.stringify(data.slice(0, 50)).substring(0, 3000);
 
-        const responderSpan = trace?.span?.({ name: 'final-responder', input: { dataCount: data.length, loreContext } });
+        const responderSpan = trace?.span?.({ name: 'final-responder', input: { dataCount: data.length } });
         const answer = await workerRequest(llmWorker, 'GENERATE', {
-          messages: [{ role: 'user', content: PROMPTS.responder(historyStr, dataStr, loreContext) }],
+          messages: [{ role: 'user', content: PROMPTS.responder(historyStr, dataStr) }],
           stream: true
         }, (chunk) => this.addThoughtChunk(chunk), responderSpan);
         responderSpan?.end?.({ output: answer });
