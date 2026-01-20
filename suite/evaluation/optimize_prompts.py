@@ -54,6 +54,39 @@ def load_dataset():
         ).with_inputs('question', 'db_schema', 'examples', 'previous_sql', 'error_message')
         examples.append(ex)
 
+    # Load Logs from 'logs/' directory (Feedback Integration)
+    logs_dir = "logs"
+    if os.path.exists(logs_dir):
+        print(f"Searching for logs in {logs_dir}...")
+        for filename in os.listdir(logs_dir):
+            if filename.endswith(".json"):
+                with open(os.path.join(logs_dir, filename), 'r') as f:
+                    try:
+                        log_data = json.load(f)
+                        # The logs exported by Logger.ts successes are a list of objects
+                        # with 'question' and 'sql' fields.
+                        items = []
+                        if isinstance(log_data, list):
+                            items = log_data
+                        elif isinstance(log_data, dict) and 'successes' in log_data:
+                            items = log_data['successes']
+                        
+                        for item in items:
+                            if 'question' in item and 'sql' in item:
+                                ex = dspy.Example(
+                                    question=item['question'],
+                                    db_schema=schema_str,
+                                    examples="",
+                                    previous_sql="",
+                                    error_message="",
+                                    reasoning=item.get('reasoning', ""),
+                                    sql_query=item['sql']
+                                ).with_inputs('question', 'db_schema', 'examples', 'previous_sql', 'error_message')
+                                examples.append(ex)
+                                print(f"Added feedback example: {item['question']}")
+                    except Exception as e:
+                        print(f"Error reading log file {filename}: {e}")
+
     return examples
 
 def load_schema_string():
@@ -79,9 +112,37 @@ def validate_sql(example, pred, trace=None):
 # --- 4. Main Optimization ---
 def optimize():
     init_dspy()
+    
+    # Load Golden Dataset (Core)
     trainset = load_dataset()
-
-    print(f"Loaded {len(trainset)} examples.")
+    
+    # Load Silver Dataset (Feedback Loop - Phase 5.3)
+    silver_count = 0
+    logs_dir = "logs"
+    if os.path.exists(logs_dir):
+        print(f"Scanning {logs_dir} for silver examples...")
+        for filename in os.listdir(logs_dir):
+            if "successes-golden" in filename and filename.endswith(".json"):
+                with open(os.path.join(logs_dir, filename), 'r') as f:
+                    try:
+                        silver_data = json.load(f)
+                        for item in silver_data:
+                            if 'question' in item and 'sql' in item:
+                                ex = dspy.Example(
+                                    question=item['question'],
+                                    db_schema=load_schema_string(), # Context needed for training
+                                    examples="",
+                                    previous_sql="",
+                                    error_message="",
+                                    reasoning=item.get('reasoning', ""),
+                                    sql_query=item['sql']
+                                ).with_inputs('question', 'db_schema', 'examples', 'previous_sql', 'error_message')
+                                trainset.append(ex)
+                                silver_count += 1
+                    except Exception as e:
+                        print(f"Error loading silver file {filename}: {e}")
+    
+    print(f"Total trainset size: {len(trainset)} ({silver_count} silver examples added).")
 
     # Define the module as a simple Predict or ChainOfThought
     module = dspy.ChainOfThought(SQLGeneratorSignature)

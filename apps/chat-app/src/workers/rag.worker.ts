@@ -6,7 +6,6 @@ env.allowRemoteModels = true;
 
 let embedder: any = null;
 let shotBank: any[] = [];
-let loreBank: any[] = [];
 
 self.onmessage = async (e: MessageEvent) => {
   const { type, payload, id } = e.data;
@@ -60,8 +59,7 @@ async function initRAG() {
 
   // Load Banks
   await Promise.all([
-    loadBank('/assets/golden_dataset.json', 'SQL'),
-    loadBank('/assets/league_lore.json', 'LORE')
+    loadBank('/assets/golden_dataset.json', 'SQL')
   ]);
 }
 
@@ -73,7 +71,6 @@ async function loadBank(url: string, type: 'SQL' | 'LORE') {
     const data = await res.json();
 
     if (type === 'SQL') shotBank = data;
-    else loreBank = data;
 
     console.log(`[RAG Worker] Loaded ${data.length} items for ${type} bank.`);
 
@@ -81,7 +78,7 @@ async function loadBank(url: string, type: 'SQL' | 'LORE') {
     const itemsToEmbed = data.filter((item: any) => !item.embedding);
     if (itemsToEmbed.length > 0) {
       const texts = itemsToEmbed.map((item: any) =>
-        type === 'SQL' ? item.question : `${item.topic}: ${item.context}`
+        item.question
       );
 
       try {
@@ -112,14 +109,14 @@ async function loadBank(url: string, type: 'SQL' | 'LORE') {
   }
 }
 
-async function retrieve(query: string, collection: 'SQL' | 'LORE', k: number = 3): Promise<any[]> {
+async function retrieve(query: string, collection: 'SQL', k: number = 3): Promise<any[]> {
   if (!embedder) throw new Error("Embedder not ready");
   if (!query || query.trim() === '') {
     console.warn(`[RAG Worker] Empty query received for ${collection}, returning empty results`);
     return [];
   }
 
-  const bank = collection === 'SQL' ? shotBank : loreBank;
+  const bank = shotBank;
   if (bank.length === 0) return [];
 
   const out = await embedder(query, { pooling: 'mean', normalize: true });

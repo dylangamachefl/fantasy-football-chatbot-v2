@@ -1,5 +1,19 @@
 import dspy
 
+class IntentRouter(dspy.Signature):
+    """Classify the user intent to determine the execution path."""
+    question = dspy.InputField()
+    intent = dspy.OutputField(desc="One of: 'sql_query' (data needed), 'conversational' (chit-chat), 'visualization' (charts/tables), 'league_rules' (settings), 'league_history' (narration)")
+    priority = dspy.OutputField(desc="Numerical priority 1-5")
+
+class SQLOrchestrator(dspy.Signature):
+    """Reason through a fantasy football question and decide which SQL actions to take."""
+    question = dspy.InputField()
+    context = dspy.InputField(desc="Working memory and previous SQL results")
+    thought = dspy.OutputField(desc="Internal reasoning about what data is missing")
+    action = dspy.OutputField(desc="SQL query to execute or 'Final Answer' to finish")
+
+
 class TableRouterSignature(dspy.Signature):
     """
     Given a user question and descriptions of available database tables,

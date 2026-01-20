@@ -1,6 +1,38 @@
 // Ported from backend/src/agent/dspy_signatures.py
 
 export const PROMPTS = {
+  // Intent Router
+  intentRouter: (question: string) => `
+Classify the user intent to determine the execution path.
+Intents: 
+- 'sql_query': Complex data needed from database.
+- 'conversational': Simple chit-chat or greeting.
+- 'visualization': Request for charts, tables, or structured lists.
+- 'league_rules': Questions about bylaws, scoring, or settings.
+- 'league_history': Narrative questions about the league's past or lore.
+
+Question: ${question}
+
+Respond in JSON format: { "intent": "sql_query" | "conversational" | "visualization" | "league_rules" | "league_history", "priority": 1-5 }
+`,
+
+  // SQL Orchestrator (ReAct)
+  orchestrator: (question: string, observations: string, sqlHints: string) => `
+Reason through a fantasy football question and decide which SQL actions to take.
+You can think in steps, deciding which tables to query sequentially if needed.
+
+CONTEXT:
+Observations from previous steps:
+${observations}
+
+SQL Retrieval Hints:
+${sqlHints}
+
+Question: ${question}
+
+Respond in JSON format: { "thought": "...", "action": "SQL query here or 'Final Answer'" }
+`,
+
   // Query Enhancer
   queryEnhancer: (history: string, userQuery: string, validOwners: string[], managerName: string, entityMap: string) => `
 You are a Query Enhancer for a Fantasy Football database. 

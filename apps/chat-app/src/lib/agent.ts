@@ -1,17 +1,12 @@
 import { PROMPTS } from './prompts';
 import Logger from './logger';
+import { DSPyInterpreter } from './dspy-interpreter';
 import type { Message, AgentState, WorkingMemory } from '../types';
 
 export const VALID_OWNER_NAMES = [
   "Dylan", "Dan", "Zach", "Chris", "Sean", "Jack",
   "Lac", "Will", "Josh", "Jake", "Fitz", "Mark", "Nick"
 ];
-
-const DB_ENTITY_MAP = `
-- MANAGERS: Tracked for Championships, Career Wins, Final Standings, Draft Value.
-- PLAYERS: Tracked for Points, Passing/Rushing/Receiving Stats, Weekly Performance.
-- MATCHUPS: Tracked for head-to-head scores and margins.
-`;
 
 // Worker Interfaces
 const dbWorker = new Worker(new URL('../workers/db.worker.ts', import.meta.url), { type: 'module' });
@@ -83,6 +78,7 @@ function workerRequest(
 
 // Global Schema Cache
 let schemaData: any = null;
+let compiledPrograms: Record<string, any> = {};
 
 export class Agent {
   private onStateChange: (state: AgentState) => void;
@@ -159,7 +155,16 @@ export class Agent {
 
       await Promise.all([p1, p2, p3]);
 
-      // Bio Fetch removed - focusing on database-driven facts only
+      // Dynamic Artifact Fetching (Flywheel Phase 5.1)
+      try {
+        const res = await fetch('/assets/artifacts/compiled_sql_generator.json');
+        if (res.ok) {
+          compiledPrograms['sql_generator'] = await res.json();
+          console.log("[Agent] Loaded compiled SQL generator artifact");
+        }
+      } catch (e) {
+        console.warn("[Agent] Compiled generator not found, using base prompts");
+      }
 
       this.setState({ status: 'idle', thoughts: ['System Ready. Transmission Secured.'] });
     } catch (err: any) {
@@ -170,15 +175,6 @@ export class Agent {
 
 
 
-  private isAnalyticalQuery(query: string): boolean {
-    const lower = query.toLowerCase().trim();
-    const analyticalKeywords = [
-      'who', 'what', 'when', 'where', 'how', 'stats', 'score',
-      'points', 'win', 'loss', 'standing', 'rank', 'draft', 'matchup',
-      'champion', 'best', 'worst', 'most', 'least', 'joke', 'lore', 'party'
-    ];
-    return analyticalKeywords.some(kw => lower.includes(kw)) || query.length > 25;
-  }
 
   async processQuery(userQuery: string, history: Message[]) {
     // Concurrency guard: prevent double-execution
@@ -190,255 +186,173 @@ export class Agent {
     this.isProcessing = true;
 
     try {
-      const startTime = Date.now();  // Track query duration
+      const startTime = Date.now();
       this.setState({ status: 'thinking', thoughts: [], error: undefined });
       const memoryStr = JSON.stringify(this.workingMemory);
 
-      // Langfuse tracing disabled: LangfuseWeb doesn't support server-side trace() API
-      // To enable tracing, you need to proxy traces through a backend server
-      const trace: any = null;
+      // 0. Intent Routing (Adaptive Orchestrator)
+      this.addThought("Classifying intent...");
+      const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
+        messages: [{ role: 'user', content: PROMPTS.intentRouter(userQuery) }],
+        jsonMode: true
+      });
 
-      try {
-        // 0. Conversational Check
-        if (!this.isAnalyticalQuery(userQuery)) {
-          this.addThought("Detected non-analytical query. Answering directly...");
-          this.setState({ status: 'answering' });
-          const answerPrompt = `User: "${userQuery}". Respond as a helpful Fantasy Assistant.`;
-          const answerSpan = trace?.span?.({ name: 'conversational-answer', input: answerPrompt });
-          const answer = await workerRequest(llmWorker, 'GENERATE', {
-            messages: [{ role: 'user', content: answerPrompt }]
-          }, undefined, answerSpan);
-          answerSpan?.end?.({ output: answer });
+      const intent = typeof routerOutput === 'string' ? JSON.parse(routerOutput).intent : routerOutput.intent;
 
-          this.setState({ status: 'idle' });
-          trace?.end?.({ output: answer, metadata: { thoughts: this.state.thoughts } });
-          return { answer, data: [], sql: "" };
-        }
-
-        // 0.5 Phase 7: Slot Filling & Working Memory Update
-        const slotSpan = trace?.span?.({ name: 'slot-filling', input: { userQuery, memory: this.workingMemory } });
-        this.addThought("Updating working memory... ");
-        const slotFillerOutput = await workerRequest(llmWorker, 'GENERATE', {
-          messages: [{ role: 'user', content: PROMPTS.slotFiller(userQuery, memoryStr) }],
-          jsonMode: true
-        }, undefined, slotSpan);
-        try {
-          const parsedMemory = typeof slotFillerOutput === 'string' ? JSON.parse(slotFillerOutput) : slotFillerOutput;
-
-          // Preserve identity: Don't let the slot filler reset Manager to "None" if we have an identity
-          if (this.identity && parsedMemory.Manager === "None") {
-            parsedMemory.Manager = this.identity;
-          }
-
-          this.workingMemory = { ...this.workingMemory, ...parsedMemory };
-          console.log("[Agent] Working Memory Updated:", this.workingMemory);
-          slotSpan?.end?.({ output: parsedMemory });
-        } catch (e) {
-          console.warn("[Agent] Slot filler failed to parse, using existing memory");
-          slotSpan?.end?.({ output: "Failed to parse", level: "WARNING" });
-        }
-
-        // 0.55 Determine if this is a personal query (Context Gating)
-        const isPersonalQuery = this.workingMemory.Manager === this.identity
-          || userQuery.toLowerCase().match(/\b(me|my|i|myself)\b/) !== null;
-        console.log("[Agent] Personal Query:", isPersonalQuery);
-
-        // 0.6 Pre-Retrieval for Schema Clues (Phase 3)
-        this.addThought("Searching for schema clues... ");
-        const preRetrieval = await workerRequest(ragWorker, 'RETRIEVE', {
-          query: userQuery,
-          collection: 'SQL',
-          k: 1
-        });
-        const schemaHint = preRetrieval.length > 0 ? `Relevant Table Hint: ${preRetrieval[0].table_name}` : "";
-
-        // 0.7 Query Enhancement with Memory & Schema Hints
-        let activeQuery = userQuery;
-        this.addThought("Resolving context... ");
-        const historyStr = history.slice(-5).map(m => `${m.role}: ${m.content}${m.sql ? ` (Used SQL: ${m.sql})` : ''}`).join('\n');
-
-        // Use working memory for manager name (falls back to identity if not set)
-        const managerName = this.workingMemory.Manager !== "None" ? this.workingMemory.Manager : (this.identity || "Unknown Manager");
-
-        const enhancedQueryPrompt = `
-          ${PROMPTS.queryEnhancer(historyStr, userQuery, VALID_OWNER_NAMES, managerName, DB_ENTITY_MAP)}
-          
-          ${schemaHint ? `SCHEMA HINT: ${schemaHint}` : ""}
-          CURRENT ENTITIES IN MEMORY: ${JSON.stringify(this.workingMemory)}
-          Ensure the rewritten query includes these entities if they are relevant to the user's pronouns or follow-up.
-        `;
-
-        const enhancementSpan = trace?.span?.({ name: 'query-enhancement', input: enhancedQueryPrompt });
-        activeQuery = await workerRequest(llmWorker, 'GENERATE', {
-          messages: [{ role: 'user', content: enhancedQueryPrompt }],
-          stream: true
-        }, (chunk) => this.addThoughtChunk(chunk), enhancementSpan);
-        enhancementSpan?.end?.({ output: activeQuery });
-
-        // 1. RAG Retrieval (SQL only - lore removed for data supremacy)
-        this.addThought("Retrieving knowledge... ");
-        const ragSpan = trace?.span?.({ name: 'rag-retrieval', input: { query: activeQuery } });
-        const ragResults = await workerRequest(ragWorker, 'RETRIEVE_BATCH', [
-          { query: activeQuery, collection: 'SQL', k: 3 }
-        ], undefined, ragSpan);
-        const [sqlExamples] = ragResults;
-        ragSpan?.end?.({ output: { sqlExamplesCount: sqlExamples.length } });
-
-        // 2. Table Routing & Dynamic Schema Pruning
-        this.addThought("Selecting tables... ");
-        const tables = schemaData?.tables || [];
-        const tableDescriptions = tables.map((t: any) => `Table: ${t.table_name}, Description: ${t.description}`).join('\n');
-
-        const routingSpan = trace?.span?.({ name: 'table-routing', input: { activeQuery, tableDescriptions } });
-        const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
-          messages: [{ role: 'user', content: PROMPTS.tableRouter(activeQuery, tableDescriptions) }],
-          jsonMode: true
-        }, undefined, routingSpan);
-
-        let selectedTables: string[] = [];
-        let isSqlQuery = true;
-        try {
-          const parsed = typeof routerOutput === 'string' ? JSON.parse(routerOutput) : routerOutput;
-          selectedTables = parsed.selected_tables || [];
-          isSqlQuery = parsed.is_sql_query !== false;
-
-          const exampleTables = sqlExamples.flatMap((ex: any) => ex.tables_used || []);
-          selectedTables = Array.from(new Set([...selectedTables, ...exampleTables]));
-          this.addThought(`Using Tables: ${selectedTables.join(', ')}`);
-          routingSpan?.end?.({ output: { selectedTables, isSqlQuery } });
-        } catch (e) {
-          selectedTables = tables.map((t: any) => t.table_name);
-          routingSpan?.end?.({ output: "Routing parse error", level: "WARNING" });
-        }
-
-        const filteredSchemaParts = ["DATABASE SCHEMA:\n"];
-        for (const t of tables) {
-          if (selectedTables.includes(t.table_name)) {
-            filteredSchemaParts.push(`Table: ${t.table_name}\nColumns: ${JSON.stringify(t.columns)}\n`);
-          }
-        }
-        const filteredSchemaStr = filteredSchemaParts.join('\n');
-
-        // 3. SQL Generation & Validation Loop (Reflexion)
-        let sql = "";
-        let data: any[] = [];
-        if (isSqlQuery && selectedTables.length > 0) {
-          let retries = 0;
-          let lastError = "";
-          const examplesStr = sqlExamples.map((s: any, i: number) => `Ex ${i + 1}: Q: ${s.question}\nSQL: ${s.sql}`).join('\n\n');
-
-          const sqlLoopSpan = trace?.span?.({ name: 'sql-generation-loop', input: { activeQuery, retriesLimit: 2 } });
-          while (retries < 2) {
-            this.setState({ status: 'querying' });
-            this.addThought(retries > 0 ? "Retrying SQL generation..." : "Generating SQL...");
-
-            const genSpan = sqlLoopSpan?.span?.({ name: `sql-gen-attempt-${retries}`, input: { lastError } });
-
-            // Pass manager name and working memory to SQL generator for context
-            const sqlPrompt = PROMPTS.sqlGenerator(activeQuery, filteredSchemaStr, managerName, this.workingMemory, sql, lastError, examplesStr);
-
-            const sqlOutput = await workerRequest(llmWorker, 'GENERATE', {
-              messages: [{ role: 'user', content: sqlPrompt }],
-              jsonMode: true
-            }, undefined, genSpan);
-
-            try {
-              const parsed = typeof sqlOutput === 'string' ? JSON.parse(sqlOutput) : sqlOutput;
-              sql = parsed.sql || "";
-              const reasoning = parsed.reasoning || "";
-
-              if (reasoning) {
-                this.addThought(`Plan: ${reasoning}`);
-              }
-            } catch (e) {
-              console.warn("[Agent] SQL generator failed to parse JSON, falling back to raw string");
-              sql = typeof sqlOutput === 'string' ? sqlOutput : JSON.stringify(sqlOutput);
-            }
-
-            sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
-
-            // Safety: Replace common placeholders with actual manager name
-            if (managerName && managerName !== "None" && managerName !== "Unknown Manager") {
-              sql = sql.replace(/'Your Manager Name'/gi, `'${managerName}'`);
-              sql = sql.replace(/"Your Manager Name"/gi, `"${managerName}"`);
-              sql = sql.replace(/\[Manager Name\]/gi, managerName);
-              sql = sql.replace(/'\{manager_name\}'/gi, `'${managerName}'`);
-            }
-
-            const validation = await workerRequest(dbWorker, 'VALIDATE_SQL', { sql }, undefined, genSpan);
-            if (validation.valid) {
-              try {
-                this.setState({ status: 'executing' });
-                const response = await workerRequest(dbWorker, 'EXEC_SQL', { sql }, undefined, genSpan);
-                data = Array.isArray(response) ? response : response.rows;
-
-                if (response.warning) {
-                  this.addThought(`Caution: ${response.warning}`);
-                }
-
-                genSpan?.end?.({ output: { sql, dataCount: data.length } });
-
-                // Auto-score for success
-                if (data.length > 0) {
-                  trace?.score?.({
-                    name: "sql-success",
-                    value: 1,
-                    comment: "SQL produced data"
-                  });
-                }
-                break;
-              } catch (e: any) {
-                lastError = e.message;
-                genSpan?.end?.({ output: lastError, level: 'ERROR' });
-                trace?.update?.({ tags: ["sql-retry"] });
-                retries++;
-              }
-            } else {
-              lastError = validation.error;
-              this.addThought(`Validation failed: ${lastError}`);
-              genSpan?.end?.({ output: lastError, level: 'ERROR' });
-              trace?.update?.({ tags: ["sql-retry"] });
-              retries++;
-            }
-          }
-          sqlLoopSpan?.end?.({ output: { finalSql: sql, finalDataCount: data.length, attempts: retries + 1 } });
-        }
-
-        // 4. Final Responder
+      if (intent === 'conversational') {
+        this.addThought("Detected conversational query. Answering directly...");
         this.setState({ status: 'answering' });
-        this.addThought("Answering... ");
-        const dataStr = JSON.stringify(data.slice(0, 50)).substring(0, 3000);
-
-        const responderSpan = trace?.span?.({ name: 'final-responder', input: { dataCount: data.length } });
+        const answerPrompt = `User: "${userQuery}". Respond as a helpful Fantasy Assistant.`;
         const answer = await workerRequest(llmWorker, 'GENERATE', {
-          messages: [{ role: 'user', content: PROMPTS.responder(historyStr, dataStr) }],
-          stream: true
-        }, (chunk) => this.addThoughtChunk(chunk), responderSpan);
-        responderSpan?.end?.({ output: answer });
+          messages: [{ role: 'user', content: answerPrompt }]
+        });
 
         this.setState({ status: 'idle' });
-        trace?.end?.({ output: answer, metadata: { thoughts: this.state.thoughts, memory: this.workingMemory } });
+        return { answer, data: [], sql: "" };
+      }
 
-        // Log query for analysis and teacher-student flywheel
-        this.lastQueryId = Logger.logQuery({
-          userQuery,
-          workingMemory: this.workingMemory,
-          sqlGenerated: sql,
-          dataRows: data.length,
-          answer,
-          durationMs: Date.now() - startTime,
-          thoughtProcess: [...this.state.thoughts],  // Copy thoughts
-          tablesUsed: selectedTables
+      if (intent === 'league_history') {
+        this.addThought("Detected league history query. Accessing archives...");
+        this.setState({ status: 'thinking' });
+        const historyPrompt = `User asked about league history: "${userQuery}". Respond as a league historian using a witty, narrative tone.`;
+        const answer = await workerRequest(llmWorker, 'GENERATE', {
+          messages: [{ role: 'user', content: historyPrompt }]
+        });
+        this.setState({ status: 'idle' });
+        return { answer, data: [], sql: "" };
+      }
+
+      // 1. Speculative Parallelism: Slot Filling & SQL RAG simultaneously
+      this.addThought("Speculating entities and schema clues...");
+      const [memoryUpdate, sqlHintsResult] = await Promise.all([
+        workerRequest(llmWorker, 'GENERATE', {
+          messages: [{ role: 'user', content: PROMPTS.slotFiller(userQuery, memoryStr) }],
+          jsonMode: true
+        }),
+        workerRequest(ragWorker, 'RETRIEVE', {
+          query: userQuery, collection: 'SQL', k: 3
+        })
+      ]);
+
+      // Update state immediately to reflect new memory
+      try {
+        const parsedMemory = typeof memoryUpdate === 'string' ? JSON.parse(memoryUpdate) : memoryUpdate;
+        if (this.identity && parsedMemory.Manager === "None") {
+          parsedMemory.Manager = this.identity;
+        }
+        this.workingMemory = { ...this.workingMemory, ...parsedMemory };
+        console.log("[Agent] Working Memory Updated (Speculative):", this.workingMemory);
+      } catch (e) {
+        console.warn("[Agent] Speculative slot filler failed to parse");
+      }
+
+      const sqlHints = sqlHintsResult.map((ex: any) => `Q: ${ex.question}\nSQL: ${ex.sql}`).join('\n\n');
+
+      // 2. ReAct Execution Loop
+      let loopCount = 0;
+      let observations = "";
+      let finalSql = "";
+      let lastData: any[] = [];
+
+      this.addThought("Starting ReAct orchestrator loop...");
+
+      while (loopCount < 3) {
+        this.setState({ status: 'thinking' });
+
+        let orchestratorPrompt = "";
+
+        // Use interpreter if artifact available, else fallback to template
+        if (compiledPrograms['sql_generator']) {
+          orchestratorPrompt = DSPyInterpreter.render(compiledPrograms['sql_generator'], {
+            question: userQuery,
+            observations: observations,
+            sql_hints: sqlHints,
+            context_modifier: intent === 'visualization' ? 'PRIORITIZE STRUCTURED DATA FOR TABLE/CHART.' : (intent === 'league_rules' ? 'FOCUS ONLY ON SETTINGS/RULES.' : '')
+          });
+        } else {
+          orchestratorPrompt = PROMPTS.orchestrator(userQuery, observations, sqlHints);
+          if (intent === 'visualization') orchestratorPrompt += "\nNOTE: Prioritize structured data for tables.";
+          if (intent === 'league_rules') orchestratorPrompt += "\nNOTE: Focus only on league settings/rules tables.";
+        }
+
+        const step = await workerRequest(llmWorker, 'GENERATE', {
+          messages: [{ role: 'user', content: orchestratorPrompt }],
+          jsonMode: true
         });
 
-        return { answer, data, sql };
+        const { thought, action } = typeof step === 'string' ? JSON.parse(step) : step;
 
-      } catch (err: any) {
-        this.setState({ status: 'error', error: err.message });
-        trace?.end?.({ output: err.message, level: 'ERROR', metadata: { thoughts: this.state.thoughts } });
-        setTimeout(() => this.setState({ status: 'idle' }), 5000);
-        throw err;
+        if (thought) this.addThought(`Thought: ${thought}`);
+
+        if (action === 'Final Answer' || action === 'FinalAnswer') {
+          this.addThought("Reached final conclusion.");
+          break;
+        }
+
+        this.addThought(`Executing: ${action}`);
+        this.setState({ status: 'executing' });
+
+        try {
+          // SQL Validation & Execution (Flywheel Phase 5.4 Assertions)
+          const data = await workerRequest(dbWorker, 'EXEC_SQL', { sql: action });
+          const dataRows = Array.isArray(data) ? data : (data.rows || []);
+
+          if (dataRows.length === 0 && !action.toLowerCase().includes('limit')) {
+            // Heuristic: if no data, maybe it's a specific filter issue? Add observation.
+            observations += `\nAction: ${action}\nObservation: Query returned 0 rows. Verify filters/IDs.`;
+          } else {
+            lastData = dataRows;
+            finalSql = action;
+            observations += `\nAction: ${action}\nObservation: Success. Data sample: ${JSON.stringify(dataRows.slice(0, 3))}`;
+
+            // If we have data, we can often stop here if the question is simple
+            if (loopCount > 0) {
+              this.addThought("Data acquired. Preparing final answer.");
+              break;
+            }
+          }
+        } catch (e: any) {
+          // ASSERTION: Feed error back to LLM for self-correction
+          this.addThought(`SQL Error detected: ${e.message}. Attempting self-correction...`);
+          observations += `\nAction: ${action}\nObservation: SQL error: ${e.message}. Correct the SQL syntax or table names and try again.`;
+
+          // Extend loop limit slightly if we hit an error early on
+          if (loopCount < 2) loopCount--; // Effectively "retry" with more context
+        }
+
+        loopCount++;
       }
+
+      // 4. Final Responder
+      this.setState({ status: 'answering' });
+      this.addThought("Synthesizing final answer... ");
+      const dataStr = JSON.stringify(lastData.slice(0, 50)).substring(0, 3000);
+      const historyStr = history.slice(-5).map(m => `${m.role}: ${m.content}`).join('\n');
+
+      const answer = await workerRequest(llmWorker, 'GENERATE', {
+        messages: [{ role: 'user', content: PROMPTS.responder(historyStr, dataStr) }],
+        stream: true
+      }, (chunk) => this.addThoughtChunk(chunk));
+
+      this.setState({ status: 'idle' });
+
+      // Log query for analysis
+      this.lastQueryId = Logger.logQuery({
+        userQuery,
+        workingMemory: this.workingMemory,
+        sqlGenerated: finalSql,
+        dataRows: lastData.length,
+        answer,
+        durationMs: Date.now() - startTime,
+        thoughtProcess: [...this.state.thoughts],
+        tablesUsed: []
+      });
+
+      return { answer, data: lastData, sql: finalSql };
+
+    } catch (err: any) {
+      this.setState({ status: 'error', error: err.message });
+      throw err;
     } finally {
       this.isProcessing = false;
     }

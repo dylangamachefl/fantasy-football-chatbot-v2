@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 from eval_config import PROMPTS_TS_PATH
 
 COMPILED_FILE = "suite/evaluation/compiled_sql_generator.json"
@@ -77,6 +78,12 @@ def export_prompts():
         f.write(content)
 
     print(f"Successfully exported to {PROMPTS_TS_PATH}")
+
+    # 3. Deploy Artifact to Public Assets
+    ARTIFACT_DEST = "apps/chat-app/public/assets/artifacts/compiled_sql_generator.json"
+    os.makedirs(os.path.dirname(ARTIFACT_DEST), exist_ok=True)
+    shutil.copy2(COMPILED_FILE, ARTIFACT_DEST)
+    print(f"Artifact deployed to {ARTIFACT_DEST}")
 
 if __name__ == "__main__":
     export_prompts()
