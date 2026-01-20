@@ -17,7 +17,7 @@ Respond in JSON format: { "intent": "sql_query" | "conversational" | "visualizat
 `,
 
   // SQL Orchestrator (ReAct)
-  orchestrator: (question: string, observations: string, sqlHints: string, managerName: string, workingMemory: any) => `
+  orchestrator: (question: string, observations: string, sqlHints: string, managerName: string, workingMemory: any, schema: string) => `
 Reason through a fantasy football question and decide which SQL actions to take.
 You can think in steps, deciding which tables to query sequentially if needed.
 
@@ -38,6 +38,9 @@ This ensures the final analyzer can see the numbers!
 
 ERROR REFLECTION:
 If an 'Observation' contains a SQL error, you MUST compare your failed query against the provided schema and fix the specific column or table name that caused the failure.
+
+AVAILABLE SCHEMA:
+${schema}
 
 CONTEXT:
 Observations from previous steps:

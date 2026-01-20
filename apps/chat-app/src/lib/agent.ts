@@ -1,6 +1,7 @@
 import { PROMPTS } from './prompts';
 import Logger from './logger';
 import { DSPyInterpreter } from './dspy-interpreter';
+import { generateSchemaMarkdown } from './utils';
 import type { Message, AgentState, WorkingMemory } from '../types';
 
 export const VALID_OWNER_NAMES = [
@@ -248,6 +249,18 @@ export class Agent {
 
       const sqlHints = sqlHintsResult.map((ex: any) => `Q: ${ex.question}\nSQL: ${ex.sql}`).join('\n\n');
 
+      // 1.5 Table Routing (Pruning)
+      this.addThought("Pruning schema for relevant tables...");
+      const tableDescriptions = schemaData.tables.map((t: any) => `${t.table_name}: ${t.description}`).join('\n');
+      const tableRouterOutput = await workerRequest(llmWorker, 'GENERATE', {
+        messages: [{ role: 'user', content: PROMPTS.tableRouter(userQuery, tableDescriptions) }],
+        jsonMode: true
+      });
+
+      const selectedTables = typeof tableRouterOutput === 'string' ? JSON.parse(tableRouterOutput).selected_tables : tableRouterOutput.selected_tables;
+      const prunedSchemaMd = generateSchemaMarkdown(schemaData, selectedTables);
+      this.addThought(`Selected tables: ${selectedTables.join(', ')}`);
+
       // 2. ReAct Execution Loop
       let loopCount = 0;
       let observations = "";
@@ -275,7 +288,8 @@ export class Agent {
             observations,
             sqlHints,
             this.identity || "None",
-            this.workingMemory
+            this.workingMemory,
+            prunedSchemaMd
           );
           if (intent === 'visualization') orchestratorPrompt += "\nNOTE: Prioritize structured data for tables.";
           if (intent === 'league_rules') orchestratorPrompt += "\nNOTE: Focus only on league settings/rules tables.";
