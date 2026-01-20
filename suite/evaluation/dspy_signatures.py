@@ -22,4 +22,5 @@ class SQLGeneratorSignature(dspy.Signature):
     examples = dspy.InputField(desc="Few-shot examples of question-SQL pairs")
     previous_sql = dspy.InputField(desc="Optional previous SQL attempt that failed")
     error_message = dspy.InputField(desc="Optional error message from the previous failed attempt")
+    reasoning = dspy.OutputField(desc="Step-by-step logic for entity selection and calculation")
     sql_query = dspy.OutputField(desc="The generated SQL query")

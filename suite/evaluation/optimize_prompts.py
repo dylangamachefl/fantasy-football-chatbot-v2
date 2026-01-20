@@ -49,6 +49,7 @@ def load_dataset():
             examples="", # Placeholder for examples during training
             previous_sql="",
             error_message="",
+            reasoning=item.get('reasoning', ""),
             sql_query=item['sql']
         ).with_inputs('question', 'db_schema', 'examples', 'previous_sql', 'error_message')
         examples.append(ex)
