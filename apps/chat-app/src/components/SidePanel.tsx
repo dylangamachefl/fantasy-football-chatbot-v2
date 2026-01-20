@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Mic } from 'lucide-react';
+import { Mic, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
+import Logger from '../lib/logger';
 
 interface SidePanelProps {
   thoughts: string[];
@@ -13,6 +14,10 @@ export function SidePanel({ thoughts, isOpen }: SidePanelProps) {
   useEffect(() => {
     thoughtsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thoughts]);
+
+  const handleDownload = () => {
+    Logger.exportCurrentTrace(thoughts);
+  };
 
   const mobileClasses = isOpen ? "translate-x-0 flex" : "-translate-x-full hidden";
 
@@ -29,9 +34,19 @@ export function SidePanel({ thoughts, isOpen }: SidePanelProps) {
       // Desktop Overrides
       "xl:relative xl:flex xl:translate-x-0 xl:bg-gray-900/30"
     )}>
-      <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex items-center gap-2 pt-20 xl:pt-4">
-        <Mic className="w-4 h-4 text-blue-500" />
-        <span className="font-black italic uppercase tracking-tighter text-sm">Live Logic Feed</span>
+      <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex items-center justify-between pt-20 xl:pt-4">
+        <div className="flex items-center gap-2">
+          <Mic className="w-4 h-4 text-blue-500" />
+          <span className="font-black italic uppercase tracking-tighter text-sm">Live Logic Feed</span>
+        </div>
+        <button
+          onClick={handleDownload}
+          disabled={thoughts.length === 0}
+          className="p-1 hover:bg-gray-800 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed group"
+          title="Download Logic Feed"
+        >
+          <Download className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors" />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
         {thoughts.length === 0 && <div className="text-gray-700 font-mono text-xs italic">Waiting for transmission...</div>}

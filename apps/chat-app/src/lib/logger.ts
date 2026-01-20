@@ -197,6 +197,18 @@ class Logger {
         this.downloadJSON(this.getAllLogs(), `ff-agent-logs-${new Date().toISOString()}.json`);
     }
 
+    static exportCurrentTrace(thoughts: string[]): void {
+        const data = {
+            timestamp: new Date().toISOString(),
+            trace: thoughts,
+            metadata: {
+                userAgent: navigator.userAgent,
+                version: '2.0.0-live-logic'
+            }
+        };
+        this.downloadJSON(data, `agent-trace-${new Date().toISOString()}.json`);
+    }
+
     static clearLogs(): void {
         localStorage.removeItem(this.STORAGE_KEY);
     }
