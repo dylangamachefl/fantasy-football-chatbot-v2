@@ -34,7 +34,7 @@ This monorepo serves as a demonstration of several advanced software engineering
 - **Frontend**: React, Vite, TypeScript, Vanilla CSS.
 - **AI Core**: WebLLM (MLC-LLM), WASM, DSPy (Python).
 - **Database**: SQLite (local bridge), SQLite WASM (future-mapping).
-- **Developer Tools**: Ollama (Teacher 모델), Python (Data-ops/Evaluation).
+- **Developer Tools**: Ollama (Teacher), Python (Data-ops/Evaluation).
 
 ## 🚀 Getting Started
 
