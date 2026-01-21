@@ -1,0 +1,38 @@
+[
+    {
+        "season": 2009,
+        "champion": "Chris",
+        "milestone": "The Inaugural Title",
+        "narrative_summary": "Chris claimed the first-ever championship in the 10-man, standard-scoring era."
+    },
+    {
+        "season": 2017,
+        "milestone": "The Stand-Up Set",
+        "narrative_summary": "Dylan lost to Mark by 1 yard in the Sacko bowl, leading to a 5-minute stand-up comedy set at an open mic."
+    },
+    {
+        "season": 2018,
+        "milestone": "The Yacht Butler",
+        "narrative_summary": "Dylan's second consecutive Sacko loss resulted in him serving as a butler for the league on a group cruise."
+    },
+    {
+        "season": 2019,
+        "milestone": "The Mercury Meltdown",
+        "narrative_summary": "Jake lost the Sacko. Performed Freddie Mercury karaoke at home due to COVID, a move the league still considers a 'cop-out'."
+    },
+    {
+        "season": 2020,
+        "milestone": "The TikTok Failure",
+        "narrative_summary": "Jack lost the Sacko. Failed to deliver on a month of cooking tutorials, marking the beginning of the 'Punishment Recession'."
+    },
+    {
+        "season": "All-Time",
+        "milestone": "The Ringless Council",
+        "narrative_summary": "Despite 15+ years of effort, Dylan, Will, Dan, Lac, and Fitz remain without a championship ring."
+    },
+    {
+        "season": "All-Time",
+        "milestone": "The G.O.A.T. (Statistically)",
+        "narrative_summary": "Sean holds the record for most titles with 4 rings."
+    }
+]

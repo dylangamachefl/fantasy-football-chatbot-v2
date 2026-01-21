@@ -1,0 +1,27 @@
+[
+    {
+        "category": "Evolution",
+        "rule": "League Expansion",
+        "description": "Expanded from 10 to 12 managers in 2023. Buy-in increased from $20 to $50 around the same period."
+    },
+    {
+        "category": "Playoffs",
+        "rule": "Legacy Format (2009-2022)",
+        "description": "10-man era. 4-team playoff. Matchups were 2 weeks each with no bye weeks."
+    },
+    {
+        "category": "Playoffs",
+        "rule": "Current Format (2023-Present)",
+        "description": "12-man era. 6-team playoff. Top 2 seeds get a 1-week bye. Semis and Finals are 2-week matchups."
+    },
+    {
+        "category": "Draft",
+        "rule": "The Road Draft",
+        "description": "Snake draft format. Always includes an in-person component with a rotating annual location."
+    },
+    {
+        "category": "Social",
+        "rule": "Punishment Protocol",
+        "description": "The 'Sacko' (last place) is required to complete a public humiliation task, though enforcement has been inconsistent since 2020."
+    }
+]
