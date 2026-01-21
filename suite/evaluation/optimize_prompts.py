@@ -122,8 +122,12 @@ def optimize():
 
     # 1. Optimize Intent Router
     print(f"Optimizing Intent Router ({len(intent_set)} examples)...")
-    intent_tp = BootstrapFewShot(metric=intent_metric, max_bootstrapped_demos=3, max_labeled_demos=3)
-    intent_prog = intent_tp.compile(dspy.Predict(IntentRouter), trainset=intent_set)
+    def validate_intent(example, pred, trace=None):
+        return example.intent.lower() == pred.intent.lower()
+
+    router_module = dspy.Predict(IntentRouter)
+    teleprompter = BootstrapFewShot(metric=validate_intent, max_bootstrapped_demos=3)
+    intent_prog = teleprompter.compile(router_module, trainset=intent_set)
     compiled_artifacts['intent_router'] = intent_prog.dump_state()
 
     # 2. Optimize Table Router

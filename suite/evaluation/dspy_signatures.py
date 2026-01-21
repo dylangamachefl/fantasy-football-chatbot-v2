@@ -1,10 +1,11 @@
 import dspy
 
 class IntentRouter(dspy.Signature):
-    """Classify the user intent to determine the execution path."""
-    question = dspy.InputField()
-    intent = dspy.OutputField(desc="One of: 'sql_query' (data needed), 'conversational' (chit-chat), 'league_rules' (settings), 'league_history' (narration)")
-    priority = dspy.OutputField(desc="Numerical priority 1-5")
+    """Classify the user's intent to route to the correct specialist."""
+    
+    question = dspy.InputField(desc="The user's fantasy football question")
+    intent = dspy.OutputField(desc="One of: [sql_query, conversational, league_rules, league_history]")
+    reasoning = dspy.OutputField(desc="Brief explanation for the chosen intent")
 
 class SQLOrchestrator(dspy.Signature):
     """Reason through a fantasy football question and decide which SQL actions to take."""

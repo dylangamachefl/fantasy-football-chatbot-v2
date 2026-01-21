@@ -229,9 +229,42 @@ export class Agent {
       if (intent === 'league_history') {
         this.addThought("Detected league history query. Accessing archives...");
         this.setState({ status: 'thinking' });
-        const historyPrompt = `User asked about league history: "${userQuery}". Respond as a league historian using a witty, narrative tone.`;
+
+        // Fetch league history context
+        const historyRes = await fetch('/assets/league_history.json');
+        const historyData = await historyRes.json();
+        const historyContext = JSON.stringify(historyData);
+
+        const historyPrompt = `
+          Context: ${historyContext}
+          User asked about league history: "${userQuery}". 
+          Respond as a league historian using a witty, narrative tone based strictly on the provided context.
+        `;
+
         const answer = await workerRequest(llmWorker, 'GENERATE', {
           messages: [{ role: 'user', content: historyPrompt }]
+        });
+        this.setState({ status: 'idle' });
+        return { answer, data: [], sql: "" };
+      }
+
+      if (intent === 'league_rules') {
+        this.addThought("Detected league rules query. Checking settings...");
+        this.setState({ status: 'thinking' });
+
+        // Fetch league rules context
+        const rulesRes = await fetch('/assets/league_rules.json');
+        const rulesData = await rulesRes.json();
+        const rulesContext = JSON.stringify(rulesData);
+
+        const rulesPrompt = `
+          Context: ${rulesContext}
+          User asked about league rules: "${userQuery}". 
+          Respond as a rulebook authority based strictly on the provided context.
+        `;
+
+        const answer = await workerRequest(llmWorker, 'GENERATE', {
+          messages: [{ role: 'user', content: rulesPrompt }]
         });
         this.setState({ status: 'idle' });
         return { answer, data: [], sql: "" };
