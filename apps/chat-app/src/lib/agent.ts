@@ -158,13 +158,20 @@ export class Agent {
 
       // Dynamic Artifact Fetching (Flywheel Phase 5.1)
       try {
-        const res = await fetch('/assets/artifacts/compiled_sql_generator.json');
+        const res = await fetch('/assets/artifacts/compiled_fantasy_agent.json');
         if (res.ok) {
-          compiledPrograms['sql_generator'] = await res.json();
-          console.log("[Agent] Loaded compiled SQL generator artifact");
+          compiledPrograms = await res.json();
+          console.log("[Agent] Loaded unified compiled agent artifacts:", Object.keys(compiledPrograms));
+        } else {
+          // Fallback check for legacy artifact
+          const legacyRes = await fetch('/assets/artifacts/compiled_sql_generator.json');
+          if (legacyRes.ok) {
+            compiledPrograms['sql_generator'] = await legacyRes.json();
+            console.log("[Agent] Loaded legacy compiled SQL generator artifact");
+          }
         }
       } catch (e) {
-        console.warn("[Agent] Compiled generator not found, using base prompts");
+        console.warn("[Agent] Compiled artifacts not found, using base prompts");
       }
 
       this.setState({ status: 'idle', thoughts: ['System Ready. Transmission Secured.'] });
@@ -193,8 +200,15 @@ export class Agent {
 
       // 0. Intent Routing (Adaptive Orchestrator)
       this.addThought("Classifying intent...");
+      let intentPrompt = "";
+      if (compiledPrograms['intent_router']) {
+        intentPrompt = DSPyInterpreter.render(compiledPrograms['intent_router'], { question: userQuery });
+      } else {
+        intentPrompt = PROMPTS.intentRouter(userQuery);
+      }
+
       const routerOutput = await workerRequest(llmWorker, 'GENERATE', {
-        messages: [{ role: 'user', content: PROMPTS.intentRouter(userQuery) }],
+        messages: [{ role: 'user', content: intentPrompt }],
         jsonMode: true
       });
 
@@ -252,8 +266,19 @@ export class Agent {
       // 1.5 Table Routing (Pruning)
       this.addThought("Pruning schema for relevant tables...");
       const tableDescriptions = schemaData.tables.map((t: any) => `${t.table_name}: ${t.description}`).join('\n');
+
+      let tableRouterPrompt = "";
+      if (compiledPrograms['table_router']) {
+        tableRouterPrompt = DSPyInterpreter.render(compiledPrograms['table_router'], {
+          question: userQuery,
+          table_descriptions: tableDescriptions
+        });
+      } else {
+        tableRouterPrompt = PROMPTS.tableRouter(userQuery, tableDescriptions);
+      }
+
       const tableRouterOutput = await workerRequest(llmWorker, 'GENERATE', {
-        messages: [{ role: 'user', content: PROMPTS.tableRouter(userQuery, tableDescriptions) }],
+        messages: [{ role: 'user', content: tableRouterPrompt }],
         jsonMode: true
       });
 
@@ -273,14 +298,17 @@ export class Agent {
         this.setState({ status: 'thinking' });
 
         let orchestratorPrompt = "";
+        let isOptimized = false;
 
         // Use interpreter if artifact available, else fallback to template
         if (compiledPrograms['sql_generator']) {
+          isOptimized = true;
           orchestratorPrompt = DSPyInterpreter.render(compiledPrograms['sql_generator'], {
             question: userQuery,
-            observations: observations,
-            sql_hints: sqlHints,
-            context_modifier: intent === 'visualization' ? 'PRIORITIZE STRUCTURED DATA FOR TABLE/CHART.' : (intent === 'league_rules' ? 'FOCUS ONLY ON SETTINGS/RULES.' : '')
+            db_schema: prunedSchemaMd,
+            examples: sqlHints,
+            previous_sql: observations.includes('SQL error') ? observations : "",
+            error_message: observations.includes('SQL error') ? "A previous attempt failed. Correct the SQL." : ""
           });
         } else {
           orchestratorPrompt = PROMPTS.orchestrator(
@@ -291,7 +319,6 @@ export class Agent {
             this.workingMemory,
             prunedSchemaMd
           );
-          if (intent === 'visualization') orchestratorPrompt += "\nNOTE: Prioritize structured data for tables.";
           if (intent === 'league_rules') orchestratorPrompt += "\nNOTE: Focus only on league settings/rules tables.";
         }
 
@@ -300,7 +327,11 @@ export class Agent {
           jsonMode: true
         });
 
-        const { thought, action } = typeof step === 'string' ? JSON.parse(step) : step;
+        const stepParsed = typeof step === 'string' ? JSON.parse(step) : step;
+
+        // Map DSPy output fields to ReAct variables
+        const thought = isOptimized ? (stepParsed.reasoning || stepParsed.thought) : stepParsed.thought;
+        const action = isOptimized ? (stepParsed.sql_query || stepParsed.action) : stepParsed.action;
 
         if (thought) this.addThought(`Thought: ${thought}`);
 

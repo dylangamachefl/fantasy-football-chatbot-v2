@@ -32,7 +32,9 @@ def generate_golden_entry(question, schema):
     2. "reasoning": A step-by-step logical chain identifying the correct table and entity relationships.
     3. "sql": The exact SQLite query to answer the question. If no SQL is needed (e.g., lore), use "NONE".
     4. "category": One of [weekly_performance, seasonal_leaders, matchup_history, draft_analytics, standings_titles, manager_career, league_lore].
-    5. "answer": A natural language answer template or the direct answer if it's lore.
+    5. "intent": One of ['sql_query', 'conversational', 'league_rules', 'league_history'].
+    6. "selected_tables": A list of table names from schema.json required for the query.
+    7. "answer": A natural language answer template or the direct answer if it's lore.
     
     RESPONSE FORMAT:
     ```json
@@ -41,6 +43,8 @@ def generate_golden_entry(question, schema):
       "reasoning": "...",
       "sql": "...",
       "category": "...",
+      "intent": "...",
+      "selected_tables": ["table1", "table2"],
       "answer": "..."
     }}
     ```

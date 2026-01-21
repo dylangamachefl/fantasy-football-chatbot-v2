@@ -1,5 +1,53 @@
 // Ported from backend/src/agent/dspy_signatures.py
 
+
+
+// --- OPTIMIZED INTENT_EXAMPLES (DO NOT EDIT MANUALLY) ---
+export const OPTIMIZED_INTENT_EXAMPLES = `Example 1:
+Question: Which player scored the most points in Week 5 of the 2023 season?
+Intent: sql_query
+
+Example 2:
+Question: How many rushing yards did Christian McCaffrey have in Week 10 of 2022?
+Intent: sql_query
+
+Example 3:
+Question: List all players on John's bench who scored more than 20 points in Week 1 of 2023.
+Intent: sql_query`;
+// --- OPTIMIZED INTENT_EXAMPLES (DO NOT EDIT MANUALLY) ---
+
+// --- OPTIMIZED INTENT_INSTRUCTION (DO NOT EDIT MANUALLY) ---
+export const OPTIMIZED_INTENT_INSTRUCTION = `Classify the user intent to determine the execution path.`;
+// --- OPTIMIZED INTENT_INSTRUCTION (DO NOT EDIT MANUALLY) ---
+
+// --- OPTIMIZED TABLE_EXAMPLES (DO NOT EDIT MANUALLY) ---
+export const OPTIMIZED_TABLE_EXAMPLES = `Example 1:
+Question: Which Running Backs scored zero points while in a starting lineup in 2023?
+Selected tables: ['Fact_Player_Performance_Weekly']
+
+Example 2:
+Question: How many touchdowns did Tyreek Hill score in Week 1 of 2023?
+Selected tables: ['Fact_Player_Performance_Weekly']
+
+Example 3:
+Question: Who won the championship in the 2022 season?
+Selected tables: ['Fact_Team_Season_Standings']`;
+// --- OPTIMIZED TABLE_EXAMPLES (DO NOT EDIT MANUALLY) ---
+
+// --- OPTIMIZED TABLE_INSTRUCTION (DO NOT EDIT MANUALLY) ---
+export const OPTIMIZED_TABLE_INSTRUCTION = `Given a user question and descriptions of available database tables,
+identify which tables are necessary to answer the question.
+Also indicate if the question requires a SQL query.`;
+// --- OPTIMIZED TABLE_INSTRUCTION (DO NOT EDIT MANUALLY) ---
+
+// --- OPTIMIZED SQL_EXAMPLES (DO NOT EDIT MANUALLY) ---
+export const OPTIMIZED_SQL_EXAMPLES = ``;
+// --- OPTIMIZED SQL_EXAMPLES (DO NOT EDIT MANUALLY) ---
+
+// --- OPTIMIZED SQL_INSTRUCTION (DO NOT EDIT MANUALLY) ---
+export const OPTIMIZED_SQL_INSTRUCTION = ``;
+// --- OPTIMIZED SQL_INSTRUCTION (DO NOT EDIT MANUALLY) ---
+
 export const PROMPTS = {
   // Intent Router
   intentRouter: (question: string) => `
@@ -7,13 +55,12 @@ Classify the user intent to determine the execution path.
 Intents: 
 - 'sql_query': Complex data needed from database.
 - 'conversational': Simple chit-chat or greeting.
-- 'visualization': Request for charts, tables, or structured lists.
 - 'league_rules': Questions about bylaws, scoring, or settings.
 - 'league_history': Narrative questions about the league's past or lore.
 
 Question: ${question}
 
-Respond in JSON format: { "intent": "sql_query" | "conversational" | "visualization" | "league_rules" | "league_history", "priority": 1-5 }
+Respond in JSON format: { "intent": "sql_query" | "conversational" | "league_rules" | "league_history", "priority": 1-5 }
 `,
 
   // SQL Orchestrator (ReAct)

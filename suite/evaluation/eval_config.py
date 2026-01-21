@@ -15,7 +15,7 @@ LANGFUSE_HOST = os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
 # The local LLM model to be used as the judge/evaluator via Ollama
 
 # The local LLM model to be used as the judge/evaluator via Ollama
-JUDGE_MODEL = "llama3"
+JUDGE_MODEL = "qwen3:8b"
 
 # Common settings for Ollama
 OLLAMA_BASE_URL = "http://localhost:11434"

@@ -3,7 +3,7 @@ import dspy
 class IntentRouter(dspy.Signature):
     """Classify the user intent to determine the execution path."""
     question = dspy.InputField()
-    intent = dspy.OutputField(desc="One of: 'sql_query' (data needed), 'conversational' (chit-chat), 'visualization' (charts/tables), 'league_rules' (settings), 'league_history' (narration)")
+    intent = dspy.OutputField(desc="One of: 'sql_query' (data needed), 'conversational' (chit-chat), 'league_rules' (settings), 'league_history' (narration)")
     priority = dspy.OutputField(desc="Numerical priority 1-5")
 
 class SQLOrchestrator(dspy.Signature):

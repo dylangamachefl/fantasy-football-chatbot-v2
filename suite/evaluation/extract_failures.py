@@ -1,72 +1,59 @@
 import json
 import os
-from langfuse import Langfuse
-from eval_config import (
-    LANGFUSE_PUBLIC_KEY,
-    LANGFUSE_SECRET_KEY,
-    LANGFUSE_HOST
-)
-
-# Initialize Langfuse
-langfuse = Langfuse(
-    public_key=LANGFUSE_PUBLIC_KEY,
-    secret_key=LANGFUSE_SECRET_KEY,
-    host=LANGFUSE_HOST
-)
+from eval_config import GOLDEN_DATASET
 
 def extract_failures():
     """
-    Fetch traces from Langfuse that have a user-feedback score < 1.
-    Extract the original user query and save as a list for the Teacher.
+    Read exported log files from the 'logs/' directory.
+    Filter for failures (negative feedback) and extract user queries.
     """
-    print(f"Connecting to Langfuse at {LANGFUSE_HOST}...")
-    
-    # 1. Fetch scores that are less than 1 (indicates downvote)
-    # Langfuse SDK 3.x uses langfuse.api.score_v_2.get() for list retrieval
-    try:
-        scores_response = langfuse.api.score_v_2.get(name="user-feedback")
-    except Exception as e:
-        print(f"Error fetching scores: {e}")
+    logs_dir = "logs"
+    if not os.path.exists(logs_dir):
+        print(f"No logs directory found at {logs_dir}. Please export logs from the app first.")
+        # Create it just in case
+        os.makedirs(logs_dir, exist_ok=True)
         return []
-    
-    failure_trace_ids = []
-    for score in scores_response.data:
-        # User feedback value: 1 for ThumbsUp, -1 for ThumbsDown
-        if score.value < 1:
-            failure_trace_ids.append(score.trace_id)
-            
-    print(f"Found {len(failure_trace_ids)} traces with negative user feedback.")
-    
-    queries = []
-    processed_traces = set()
 
-    for trace_id in failure_trace_ids:
-        if trace_id in processed_traces:
-            continue
-            
-        try:
-            trace = langfuse.get_trace(trace_id)
-            # Input to 'agent-process-query' is saved in trace.input
-            # Based on agent.ts: trace = langfuse.trace({ name: 'agent-process-query', input: { userQuery, ... } })
-            user_query = trace.input.get("userQuery")
-            if user_query:
-                queries.append(user_query)
-                processed_traces.add(trace_id)
-        except Exception as e:
-            print(f"Error fetching trace {trace_id}: {e}")
-
-    # Remove duplicates
-    unique_queries = list(set(queries))
+    print(f"Scanning {logs_dir} for failure logs...")
     
-    print(f"Extracted {len(unique_queries)} unique failure queries.")
+    unique_queries = set()
+    
+    for filename in os.listdir(logs_dir):
+        # 1. Check failures-for-teacher files
+        if "failures-for-teacher" in filename and filename.endswith(".json"):
+            path = os.path.join(logs_dir, filename)
+            try:
+                with open(path, 'r') as f:
+                    failures = json.load(f)
+                    for item in failures:
+                        if 'question' in item:
+                            unique_queries.add(item['question'])
+            except Exception as e:
+                print(f"Error reading {filename}: {e}")
+        
+        # 2. Also check all-feedback files
+        elif "all-feedback" in filename and filename.endswith(".json"):
+            path = os.path.join(logs_dir, filename)
+            try:
+                with open(path, 'r') as f:
+                    data = json.load(f)
+                    if 'failures' in data:
+                        for f_item in data['failures']:
+                            if 'question' in f_item:
+                                unique_queries.add(f_item['question'])
+            except Exception as e:
+                print(f"Error reading {filename}: {e}")
+
+    unique_queries_list = list(unique_queries)
+    print(f"Extracted {len(unique_queries_list)} unique failure queries.")
     
     # Save to a temporary file for the Teacher
     output_path = "suite/evaluation/extracted_failures.json"
     with open(output_path, 'w') as f:
-        json.dump(unique_queries, f, indent=2)
+        json.dump(unique_queries_list, f, indent=2)
         
     print(f"Failures saved to {output_path}")
-    return unique_queries
+    return unique_queries_list
 
 if __name__ == "__main__":
     extract_failures()
