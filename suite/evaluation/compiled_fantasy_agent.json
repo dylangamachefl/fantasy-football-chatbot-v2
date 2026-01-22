@@ -5,37 +5,89 @@
     "demos": [
       {
         "augmented": true,
-        "question": "Which player scored the most points in Week 5 of the 2023 season?",
+        "question": "How many fantasy points did Dylan score in Week 4 of the 2023 season?",
         "intent": "sql_query",
-        "priority": "1"
+        "reasoning": "The question asks for specific statistical data (fantasy points scored by Dylan in Week 4 of the 2023 season), which requires querying a database or dataset tracking player performance metrics."
       },
       {
         "augmented": true,
-        "question": "How many rushing yards did Christian McCaffrey have in Week 10 of 2022?",
+        "question": "Who has won the most championships in league history according to the stats?",
         "intent": "sql_query",
-        "priority": "1"
+        "reasoning": "The question asks for statistical data on championship wins in league history, which requires querying a database to retrieve and compare player statistics."
       },
       {
         "augmented": true,
-        "question": "List all players on John's bench who scored more than 20 points in Week 1 of 2023.",
-        "intent": "sql_query",
-        "priority": "1"
+        "question": "What is the current playoff format?",
+        "intent": "league_rules",
+        "reasoning": "The question asks about the current playoff format, which is governed by the league's established rules and structure. This requires referencing the rules rather than historical data or SQL-based statistics."
+      },
+      {
+        "question": "Who is the 'G.O.A.T.' of this league?",
+        "intent": "league_history"
+      },
+      {
+        "question": "How many rushing touchdowns did Saquon Barkley have in Week 2, 2023?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "What is the average finish rank for Sean?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Has Zach ever won a championship?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Who was the 1st overall pick in the 2020 draft?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Who drafted Justin Jefferson in 2022 and what was the pick number?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "How many times has Will started a player who scored 0 points in 2022?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Did Fitz make the playoffs in 2019?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Which manager scored the most points in a season but failed to win the championship in 2021?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Which manager had the best draft value in 2023 based on points over expected?",
+        "intent": "sql_query"
+      },
+      {
+        "question": "Who are the managers that have never won a ring?",
+        "intent": "league_history"
+      },
+      {
+        "question": "Hi, can you help me with my lineup?",
+        "intent": "conversational"
+      },
+      {
+        "question": "What is the punishment for coming in last place?",
+        "intent": "league_rules"
       }
     ],
     "signature": {
-      "instructions": "Classify the user intent to determine the execution path.",
+      "instructions": "Classify the user's intent to route to the correct specialist.",
       "fields": [
         {
           "prefix": "Question:",
-          "description": "${question}"
+          "description": "The user's fantasy football question"
         },
         {
           "prefix": "Intent:",
-          "description": "One of: 'sql_query' (data needed), 'conversational' (chit-chat), 'visualization' (charts/tables), 'league_rules' (settings), 'league_history' (narration)"
+          "description": "One of: [sql_query, conversational, league_rules, league_history]"
         },
         {
-          "prefix": "Priority:",
-          "description": "Numerical priority 1-5"
+          "prefix": "Reasoning:",
+          "description": "Brief explanation for the chosen intent"
         }
       ]
     },
@@ -46,28 +98,25 @@
     "train": [],
     "demos": [
       {
-        "question": "Which Running Backs scored zero points while in a starting lineup in 2023?",
+        "augmented": true,
+        "question": "Tell me about the time Dylan had to be a butler.",
         "table_descriptions": "Fact_Player_Performance_Weekly: Primary fact table for weekly player stats and ownership. Use for questions about weekly scores, benching vs starting, and specific game stats.\nFact_Player_Season_Stat_Leaders: Seasonal totals and rankings for all players across all positions.\nFact_Matchup_History_Wide: Symmetric head-to-head game log with two rows per matchup (one for each manager).\nFact_Draft_Performance_Analysis: Analyzes draft ROI by comparing picks to season ROI metrics.\nFact_Team_Season_Standings: Final team records and standings for every season.\nFact_Manager_Career_Leaderboard: Aggregated career statistics for every owner.\nFact_Player_Master_Profile: Career totals and biographical summary for every player.\nPlayers_Wide: Master player identity table to resolve names to unique IDs.",
-        "selected_tables": [
-          "Fact_Player_Performance_Weekly"
-        ],
-        "is_sql_query": true
+        "selected_tables": "N/A",
+        "is_sql_query": "False"
       },
       {
-        "question": "How many touchdowns did Tyreek Hill score in Week 1 of 2023?",
+        "augmented": true,
+        "question": "What is the current playoff format?",
         "table_descriptions": "Fact_Player_Performance_Weekly: Primary fact table for weekly player stats and ownership. Use for questions about weekly scores, benching vs starting, and specific game stats.\nFact_Player_Season_Stat_Leaders: Seasonal totals and rankings for all players across all positions.\nFact_Matchup_History_Wide: Symmetric head-to-head game log with two rows per matchup (one for each manager).\nFact_Draft_Performance_Analysis: Analyzes draft ROI by comparing picks to season ROI metrics.\nFact_Team_Season_Standings: Final team records and standings for every season.\nFact_Manager_Career_Leaderboard: Aggregated career statistics for every owner.\nFact_Player_Master_Profile: Career totals and biographical summary for every player.\nPlayers_Wide: Master player identity table to resolve names to unique IDs.",
-        "selected_tables": [
-          "Fact_Player_Performance_Weekly"
-        ],
-        "is_sql_query": true
+        "selected_tables": "N/A",
+        "is_sql_query": "False"
       },
       {
-        "question": "Who won the championship in the 2022 season?",
+        "augmented": true,
+        "question": "Who are the managers that have never won a ring?",
         "table_descriptions": "Fact_Player_Performance_Weekly: Primary fact table for weekly player stats and ownership. Use for questions about weekly scores, benching vs starting, and specific game stats.\nFact_Player_Season_Stat_Leaders: Seasonal totals and rankings for all players across all positions.\nFact_Matchup_History_Wide: Symmetric head-to-head game log with two rows per matchup (one for each manager).\nFact_Draft_Performance_Analysis: Analyzes draft ROI by comparing picks to season ROI metrics.\nFact_Team_Season_Standings: Final team records and standings for every season.\nFact_Manager_Career_Leaderboard: Aggregated career statistics for every owner.\nFact_Player_Master_Profile: Career totals and biographical summary for every player.\nPlayers_Wide: Master player identity table to resolve names to unique IDs.",
-        "selected_tables": [
-          "Fact_Team_Season_Standings"
-        ],
-        "is_sql_query": true
+        "selected_tables": "\u00abFact_Manager_Career_Leaderboard\u00bb",
+        "is_sql_query": "True"
       }
     ],
     "signature": {
@@ -99,40 +148,41 @@
       "train": [],
       "demos": [
         {
-          "question": "List all players on John's bench who scored more than 20 points in Week 1 of 2023.",
+          "augmented": true,
+          "question": "How many points has Tyreek Hill scored in his career?",
           "db_schema": "DATABASE SCHEMA:\n\nTable: Fact_Player_Performance_Weekly\nColumns: {\"season_id\": \"The unique primary key for a fantasy season, representing the calendar year.\", \"game_week\": \"The week of the NFL season for this stat line.\", \"player_name\": \"The full name of the NFL player.\", \"player_position\": \"The position of the player.\", \"owner_name\": \"The display name of the fantasy owner.\", \"fantasy_team_name\": \"The name of the fantasy team for that season.\", \"is_starting\": \"Indicates if the player was in a starting lineup position.\", \"total_fantasy_points\": \"The player's total fantasy points for this specific week.\", \"pass_yds\": \"Total passing yards for the week.\", \"pass_tds\": \"Total passing touchdowns for the week.\", \"rush_yds\": \"Total rushing yards for the week.\", \"rush_tds\": \"Total rushing touchdowns for the week.\", \"rec_yds\": \"Total receiving yards for the week.\", \"rec_tds\": \"Total receiving touchdowns for the week.\"}\n\nTable: Fact_Player_Season_Stat_Leaders\nColumns: {\"season_id\": \"The season year (e.g., 2022).\", \"player_name\": \"The full name of the player.\", \"player_position\": \"The position of the player.\", \"games_played\": \"Number of games played in that season.\", \"total_fantasy_points\": \"The player's total fantasy points for the entire season.\", \"season_rank\": \"The player's final rank among all players at their position for the season.\"}\n\nTable: Fact_Matchup_History_Wide\nColumns: {\"season_id\": \"The season year the matchup took place.\", \"nfl_week\": \"The week of the NFL season.\", \"fantasy_week\": \"The name or number of the fantasy week.\", \"matchup_category\": \"Category: 'Regular Season', 'Postseason (Non-playoff)', or 'Playoff'.\", \"manager_name\": \"The name of the primary manager for this row.\", \"manager_team\": \"The name of the manager's fantasy team.\", \"manager_score\": \"The final fantasy point total for the manager.\", \"opponent_name\": \"The name of the opponent manager.\", \"opponent_team\": \"The name of the opponent's team.\", \"opponent_score\": \"The final fantasy point total for the opponent.\", \"margin_of_victory\": \"The absolute point difference between the two scores.\", \"outcome\": \"The result for the manager: 'Win', 'Loss', or 'Tie'.\"}\n\nTable: Fact_Draft_Performance_Analysis\nColumns: {\"season_id\": \"The season year of the draft.\", \"player_name\": \"The name of the drafted player.\", \"owner_name\": \"The name of the owner who made the pick.\", \"pick_overall\": \"The overall pick number in the entire draft.\", \"draft_value_vs_adp\": \"Indicates how much of a 'reach' or 'steal' the pick was compared to market ADP.\", \"total_season_points\": \"Total fantasy points the player scored during that entire season.\", \"points_scored_over_expected\": \"Difference between actual points and expected points from that draft slot.\", \"finish_rank\": \"The player's final rank among all players at their position.\", \"draft_rank\": \"The rank of the player at their position when drafted.\", \"rank_diff\": \"Difference between draft rank and final finish rank.\"}\n\nTable: Fact_Team_Season_Standings\nColumns: {\"season_id\": \"The season year.\", \"owner_name\": \"The name of the team's owner.\", \"regular_season_wins\": \"Number of wins during the regular season only.\", \"final_standing\": \"The team's final rank including playoffs.\", \"is_champion\": \"Indicates if the team won the championship.\"}\n\nTable: Fact_Manager_Career_Leaderboard\nColumns: {\"owner_name\": \"The display name of the fantasy owner.\", \"career_wins\": \"Total wins including regular season and playoffs.\", \"career_win_percentage\": \"The owner's career winning percentage.\", \"championships_won\": \"The total number of championships won.\", \"career_points_for\": \"Total career fantasy points scored.\", \"career_playoff_rate\": \"Percentage of seasons where manager qualified for playoffs.\", \"avg_final_standing\": \"The owner's average final ranking.\"}\n\nTable: Fact_Player_Master_Profile\nColumns: {\"player_name\": \"The full name of the player.\", \"primary_position\": \"The main position the player has played.\", \"career_games_played\": \"Total number of games played over their career.\", \"career_fantasy_points\": \"Total career fantasy points scored.\", \"total_seasons_active\": \"Number of seasons the player has been active.\"}\n\nTable: Players_Wide\nColumns: {\"player_id\": \"The unique primary key for an individual player.\", \"player_name\": \"The full name of the player.\"}\n",
           "examples": "",
           "previous_sql": "",
           "error_message": "",
-          "reasoning": "The question requires retrieving players on John's bench (is_starting = 0) who scored more than 20 points in Week 1 of the 2023 season. The Fact_Player_Performance_Weekly table contains the necessary columns (owner_name, season_id, game_week, is_starting, total_fantasy_points) to filter and retrieve this specific data.",
-          "sql_query": "SELECT player_name, total_fantasy_points FROM Fact_Player_Performance_Weekly WHERE owner_name = 'John' AND season_id = 2023 AND game_week = 1 AND is_starting = 0 AND total_fantasy_points > 20"
+          "reasoning": "Career fantasy points for a player are stored in Fact_Player_Master_Profile. Query this table directly for Tyreek Hill's total.",
+          "sql_query": "SELECT career_fantasy_points FROM Fact_Player_Master_Profile WHERE player_name = 'Tyreek Hill'"
         },
         {
-          "question": "What is the all-time head-to-head record for Mike vs Steve?",
+          "question": "Which manager scored the most points in a season but failed to win the championship in 2021?",
           "db_schema": "DATABASE SCHEMA:\n\nTable: Fact_Player_Performance_Weekly\nColumns: {\"season_id\": \"The unique primary key for a fantasy season, representing the calendar year.\", \"game_week\": \"The week of the NFL season for this stat line.\", \"player_name\": \"The full name of the NFL player.\", \"player_position\": \"The position of the player.\", \"owner_name\": \"The display name of the fantasy owner.\", \"fantasy_team_name\": \"The name of the fantasy team for that season.\", \"is_starting\": \"Indicates if the player was in a starting lineup position.\", \"total_fantasy_points\": \"The player's total fantasy points for this specific week.\", \"pass_yds\": \"Total passing yards for the week.\", \"pass_tds\": \"Total passing touchdowns for the week.\", \"rush_yds\": \"Total rushing yards for the week.\", \"rush_tds\": \"Total rushing touchdowns for the week.\", \"rec_yds\": \"Total receiving yards for the week.\", \"rec_tds\": \"Total receiving touchdowns for the week.\"}\n\nTable: Fact_Player_Season_Stat_Leaders\nColumns: {\"season_id\": \"The season year (e.g., 2022).\", \"player_name\": \"The full name of the player.\", \"player_position\": \"The position of the player.\", \"games_played\": \"Number of games played in that season.\", \"total_fantasy_points\": \"The player's total fantasy points for the entire season.\", \"season_rank\": \"The player's final rank among all players at their position for the season.\"}\n\nTable: Fact_Matchup_History_Wide\nColumns: {\"season_id\": \"The season year the matchup took place.\", \"nfl_week\": \"The week of the NFL season.\", \"fantasy_week\": \"The name or number of the fantasy week.\", \"matchup_category\": \"Category: 'Regular Season', 'Postseason (Non-playoff)', or 'Playoff'.\", \"manager_name\": \"The name of the primary manager for this row.\", \"manager_team\": \"The name of the manager's fantasy team.\", \"manager_score\": \"The final fantasy point total for the manager.\", \"opponent_name\": \"The name of the opponent manager.\", \"opponent_team\": \"The name of the opponent's team.\", \"opponent_score\": \"The final fantasy point total for the opponent.\", \"margin_of_victory\": \"The absolute point difference between the two scores.\", \"outcome\": \"The result for the manager: 'Win', 'Loss', or 'Tie'.\"}\n\nTable: Fact_Draft_Performance_Analysis\nColumns: {\"season_id\": \"The season year of the draft.\", \"player_name\": \"The name of the drafted player.\", \"owner_name\": \"The name of the owner who made the pick.\", \"pick_overall\": \"The overall pick number in the entire draft.\", \"draft_value_vs_adp\": \"Indicates how much of a 'reach' or 'steal' the pick was compared to market ADP.\", \"total_season_points\": \"Total fantasy points the player scored during that entire season.\", \"points_scored_over_expected\": \"Difference between actual points and expected points from that draft slot.\", \"finish_rank\": \"The player's final rank among all players at their position.\", \"draft_rank\": \"The rank of the player at their position when drafted.\", \"rank_diff\": \"Difference between draft rank and final finish rank.\"}\n\nTable: Fact_Team_Season_Standings\nColumns: {\"season_id\": \"The season year.\", \"owner_name\": \"The name of the team's owner.\", \"regular_season_wins\": \"Number of wins during the regular season only.\", \"final_standing\": \"The team's final rank including playoffs.\", \"is_champion\": \"Indicates if the team won the championship.\"}\n\nTable: Fact_Manager_Career_Leaderboard\nColumns: {\"owner_name\": \"The display name of the fantasy owner.\", \"career_wins\": \"Total wins including regular season and playoffs.\", \"career_win_percentage\": \"The owner's career winning percentage.\", \"championships_won\": \"The total number of championships won.\", \"career_points_for\": \"Total career fantasy points scored.\", \"career_playoff_rate\": \"Percentage of seasons where manager qualified for playoffs.\", \"avg_final_standing\": \"The owner's average final ranking.\"}\n\nTable: Fact_Player_Master_Profile\nColumns: {\"player_name\": \"The full name of the player.\", \"primary_position\": \"The main position the player has played.\", \"career_games_played\": \"Total number of games played over their career.\", \"career_fantasy_points\": \"Total career fantasy points scored.\", \"total_seasons_active\": \"Number of seasons the player has been active.\"}\n\nTable: Players_Wide\nColumns: {\"player_id\": \"The unique primary key for an individual player.\", \"player_name\": \"The full name of the player.\"}\n",
           "examples": "",
           "previous_sql": "",
           "error_message": "",
-          "reasoning": "The question asks for the head-to-head record between two managers, which is directly addressed by the Fact_Matchup_History_Wide table. This table contains the necessary columns for manager names, opponent names, and outcomes of matchups.",
-          "sql_query": "SELECT outcome, COUNT(*) as count FROM Fact_Matchup_History_Wide WHERE manager_name = 'Mike' AND opponent_name = 'Steve' GROUP BY outcome"
+          "reasoning": "Find max points for non-champions in 2021. Requires joining standings and season stat leaders or summing matchups.",
+          "sql_query": "SELECT t1.owner_name, sum(t2.manager_score) as total_pts FROM Fact_Team_Season_Standings t1 JOIN Fact_Matchup_History_Wide t2 ON t1.owner_name = t2.manager_name WHERE t1.season_id = 2021 AND t1.is_champion = 0 AND t2.season_id = 2021 GROUP BY t1.owner_name ORDER BY total_pts DESC LIMIT 1"
         },
         {
-          "question": "Who was the best value pick in the 2022 draft?",
+          "question": "Did Nick make the playoffs last year?",
           "db_schema": "DATABASE SCHEMA:\n\nTable: Fact_Player_Performance_Weekly\nColumns: {\"season_id\": \"The unique primary key for a fantasy season, representing the calendar year.\", \"game_week\": \"The week of the NFL season for this stat line.\", \"player_name\": \"The full name of the NFL player.\", \"player_position\": \"The position of the player.\", \"owner_name\": \"The display name of the fantasy owner.\", \"fantasy_team_name\": \"The name of the fantasy team for that season.\", \"is_starting\": \"Indicates if the player was in a starting lineup position.\", \"total_fantasy_points\": \"The player's total fantasy points for this specific week.\", \"pass_yds\": \"Total passing yards for the week.\", \"pass_tds\": \"Total passing touchdowns for the week.\", \"rush_yds\": \"Total rushing yards for the week.\", \"rush_tds\": \"Total rushing touchdowns for the week.\", \"rec_yds\": \"Total receiving yards for the week.\", \"rec_tds\": \"Total receiving touchdowns for the week.\"}\n\nTable: Fact_Player_Season_Stat_Leaders\nColumns: {\"season_id\": \"The season year (e.g., 2022).\", \"player_name\": \"The full name of the player.\", \"player_position\": \"The position of the player.\", \"games_played\": \"Number of games played in that season.\", \"total_fantasy_points\": \"The player's total fantasy points for the entire season.\", \"season_rank\": \"The player's final rank among all players at their position for the season.\"}\n\nTable: Fact_Matchup_History_Wide\nColumns: {\"season_id\": \"The season year the matchup took place.\", \"nfl_week\": \"The week of the NFL season.\", \"fantasy_week\": \"The name or number of the fantasy week.\", \"matchup_category\": \"Category: 'Regular Season', 'Postseason (Non-playoff)', or 'Playoff'.\", \"manager_name\": \"The name of the primary manager for this row.\", \"manager_team\": \"The name of the manager's fantasy team.\", \"manager_score\": \"The final fantasy point total for the manager.\", \"opponent_name\": \"The name of the opponent manager.\", \"opponent_team\": \"The name of the opponent's team.\", \"opponent_score\": \"The final fantasy point total for the opponent.\", \"margin_of_victory\": \"The absolute point difference between the two scores.\", \"outcome\": \"The result for the manager: 'Win', 'Loss', or 'Tie'.\"}\n\nTable: Fact_Draft_Performance_Analysis\nColumns: {\"season_id\": \"The season year of the draft.\", \"player_name\": \"The name of the drafted player.\", \"owner_name\": \"The name of the owner who made the pick.\", \"pick_overall\": \"The overall pick number in the entire draft.\", \"draft_value_vs_adp\": \"Indicates how much of a 'reach' or 'steal' the pick was compared to market ADP.\", \"total_season_points\": \"Total fantasy points the player scored during that entire season.\", \"points_scored_over_expected\": \"Difference between actual points and expected points from that draft slot.\", \"finish_rank\": \"The player's final rank among all players at their position.\", \"draft_rank\": \"The rank of the player at their position when drafted.\", \"rank_diff\": \"Difference between draft rank and final finish rank.\"}\n\nTable: Fact_Team_Season_Standings\nColumns: {\"season_id\": \"The season year.\", \"owner_name\": \"The name of the team's owner.\", \"regular_season_wins\": \"Number of wins during the regular season only.\", \"final_standing\": \"The team's final rank including playoffs.\", \"is_champion\": \"Indicates if the team won the championship.\"}\n\nTable: Fact_Manager_Career_Leaderboard\nColumns: {\"owner_name\": \"The display name of the fantasy owner.\", \"career_wins\": \"Total wins including regular season and playoffs.\", \"career_win_percentage\": \"The owner's career winning percentage.\", \"championships_won\": \"The total number of championships won.\", \"career_points_for\": \"Total career fantasy points scored.\", \"career_playoff_rate\": \"Percentage of seasons where manager qualified for playoffs.\", \"avg_final_standing\": \"The owner's average final ranking.\"}\n\nTable: Fact_Player_Master_Profile\nColumns: {\"player_name\": \"The full name of the player.\", \"primary_position\": \"The main position the player has played.\", \"career_games_played\": \"Total number of games played over their career.\", \"career_fantasy_points\": \"Total career fantasy points scored.\", \"total_seasons_active\": \"Number of seasons the player has been active.\"}\n\nTable: Players_Wide\nColumns: {\"player_id\": \"The unique primary key for an individual player.\", \"player_name\": \"The full name of the player.\"}\n",
           "examples": "",
           "previous_sql": "",
           "error_message": "",
-          "reasoning": "The question asks for the best value pick in the 2022 draft, which requires analyzing draft ROI metrics. The Fact_Draft_Performance_Analysis table contains the necessary columns like points_scored_over_expected, season_id, player_name, and owner_name. This table directly provides the data needed to determine which player provided the highest value relative to their draft position.",
-          "sql_query": "SELECT player_name, owner_name, points_scored_over_expected FROM Fact_Draft_Performance_Analysis WHERE season_id = 2022 ORDER BY points_scored_over_expected DESC LIMIT 1"
+          "reasoning": "Check 2023 standings for Nick.",
+          "sql_query": "SELECT final_standing FROM Fact_Team_Season_Standings WHERE owner_name = 'Nick' AND season_id = 2023"
         },
         {
-          "question": "List the top 3 managers by career wins.",
+          "question": "How many rushing touchdowns did Saquon Barkley have in Week 2, 2023?",
           "db_schema": "DATABASE SCHEMA:\n\nTable: Fact_Player_Performance_Weekly\nColumns: {\"season_id\": \"The unique primary key for a fantasy season, representing the calendar year.\", \"game_week\": \"The week of the NFL season for this stat line.\", \"player_name\": \"The full name of the NFL player.\", \"player_position\": \"The position of the player.\", \"owner_name\": \"The display name of the fantasy owner.\", \"fantasy_team_name\": \"The name of the fantasy team for that season.\", \"is_starting\": \"Indicates if the player was in a starting lineup position.\", \"total_fantasy_points\": \"The player's total fantasy points for this specific week.\", \"pass_yds\": \"Total passing yards for the week.\", \"pass_tds\": \"Total passing touchdowns for the week.\", \"rush_yds\": \"Total rushing yards for the week.\", \"rush_tds\": \"Total rushing touchdowns for the week.\", \"rec_yds\": \"Total receiving yards for the week.\", \"rec_tds\": \"Total receiving touchdowns for the week.\"}\n\nTable: Fact_Player_Season_Stat_Leaders\nColumns: {\"season_id\": \"The season year (e.g., 2022).\", \"player_name\": \"The full name of the player.\", \"player_position\": \"The position of the player.\", \"games_played\": \"Number of games played in that season.\", \"total_fantasy_points\": \"The player's total fantasy points for the entire season.\", \"season_rank\": \"The player's final rank among all players at their position for the season.\"}\n\nTable: Fact_Matchup_History_Wide\nColumns: {\"season_id\": \"The season year the matchup took place.\", \"nfl_week\": \"The week of the NFL season.\", \"fantasy_week\": \"The name or number of the fantasy week.\", \"matchup_category\": \"Category: 'Regular Season', 'Postseason (Non-playoff)', or 'Playoff'.\", \"manager_name\": \"The name of the primary manager for this row.\", \"manager_team\": \"The name of the manager's fantasy team.\", \"manager_score\": \"The final fantasy point total for the manager.\", \"opponent_name\": \"The name of the opponent manager.\", \"opponent_team\": \"The name of the opponent's team.\", \"opponent_score\": \"The final fantasy point total for the opponent.\", \"margin_of_victory\": \"The absolute point difference between the two scores.\", \"outcome\": \"The result for the manager: 'Win', 'Loss', or 'Tie'.\"}\n\nTable: Fact_Draft_Performance_Analysis\nColumns: {\"season_id\": \"The season year of the draft.\", \"player_name\": \"The name of the drafted player.\", \"owner_name\": \"The name of the owner who made the pick.\", \"pick_overall\": \"The overall pick number in the entire draft.\", \"draft_value_vs_adp\": \"Indicates how much of a 'reach' or 'steal' the pick was compared to market ADP.\", \"total_season_points\": \"Total fantasy points the player scored during that entire season.\", \"points_scored_over_expected\": \"Difference between actual points and expected points from that draft slot.\", \"finish_rank\": \"The player's final rank among all players at their position.\", \"draft_rank\": \"The rank of the player at their position when drafted.\", \"rank_diff\": \"Difference between draft rank and final finish rank.\"}\n\nTable: Fact_Team_Season_Standings\nColumns: {\"season_id\": \"The season year.\", \"owner_name\": \"The name of the team's owner.\", \"regular_season_wins\": \"Number of wins during the regular season only.\", \"final_standing\": \"The team's final rank including playoffs.\", \"is_champion\": \"Indicates if the team won the championship.\"}\n\nTable: Fact_Manager_Career_Leaderboard\nColumns: {\"owner_name\": \"The display name of the fantasy owner.\", \"career_wins\": \"Total wins including regular season and playoffs.\", \"career_win_percentage\": \"The owner's career winning percentage.\", \"championships_won\": \"The total number of championships won.\", \"career_points_for\": \"Total career fantasy points scored.\", \"career_playoff_rate\": \"Percentage of seasons where manager qualified for playoffs.\", \"avg_final_standing\": \"The owner's average final ranking.\"}\n\nTable: Fact_Player_Master_Profile\nColumns: {\"player_name\": \"The full name of the player.\", \"primary_position\": \"The main position the player has played.\", \"career_games_played\": \"Total number of games played over their career.\", \"career_fantasy_points\": \"Total career fantasy points scored.\", \"total_seasons_active\": \"Number of seasons the player has been active.\"}\n\nTable: Players_Wide\nColumns: {\"player_id\": \"The unique primary key for an individual player.\", \"player_name\": \"The full name of the player.\"}\n",
           "examples": "",
           "previous_sql": "",
           "error_message": "",
-          "reasoning": "The question asks for the top 3 managers by career wins, which is directly provided in the Fact_Manager_Career_Leaderboard table. This table contains the 'career_wins' column needed for the calculation, and the existing SQL already correctly orders by this column and limits to 3 rows.",
-          "sql_query": "SELECT owner_name, career_wins FROM Fact_Manager_Career_Leaderboard ORDER BY career_wins DESC LIMIT 3"
+          "reasoning": "Specific player stat lookup.",
+          "sql_query": "SELECT rush_tds FROM Fact_Player_Performance_Weekly WHERE player_name = 'Saquon Barkley' AND season_id = 2023 AND game_week = 2"
         }
       ],
       "signature": {
