@@ -1,0 +1,88 @@
+[
+  {
+    "question": "How many fantasy points did Dylan score in Week 4 of the 2023 season?",
+    "gold_intent": "sql_query",
+    "pred_intent": "sql_query",
+    "gold_sql": "SELECT manager_score FROM Fact_Matchup_History_Wide WHERE season_id = 2023 AND nfl_week = 4 AND manager_name = 'Dylan'",
+    "pred_sql": "SELECT total_fantasy_points FROM Fact_Player_Performance_Weekly WHERE player_name = 'Dylan' AND season_id = 2023 AND game_week = 4;",
+    "gold_tables": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "pred_tables": "Fact_Player_Performance_Weekly"
+  },
+  {
+    "question": "Who has won the most championships in league history according to the stats?",
+    "gold_intent": "sql_query",
+    "pred_intent": "sql_query",
+    "gold_sql": "SELECT owner_name, championships_won FROM Fact_Manager_Career_Leaderboard ORDER BY championships_won DESC LIMIT 1",
+    "pred_sql": "SELECT owner_name, championships_won \nFROM Fact_Manager_Career_Leaderboard \nORDER BY championships_won DESC \nLIMIT 1;",
+    "gold_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "pred_tables": "\u00abFact_Manager_Career_Leaderboard\u00bb"
+  },
+  {
+    "question": "Tell me about the time Dylan had to be a butler.",
+    "gold_intent": "league_history",
+    "pred_intent": "conversational"
+  },
+  {
+    "question": "What is the current playoff format?",
+    "gold_intent": "league_rules",
+    "pred_intent": "league_rules"
+  },
+  {
+    "question": "Did Christian McCaffrey start for Chris in Week 10 of 2022?",
+    "gold_intent": "sql_query",
+    "pred_intent": "sql_query",
+    "gold_sql": "SELECT is_starting FROM Fact_Player_Performance_Weekly WHERE player_name = 'Christian McCaffrey' AND owner_name = 'Chris' AND season_id = 2022 AND game_week = 10",
+    "pred_sql": "SELECT is_starting FROM Fact_Player_Performance_Weekly WHERE player_name = 'Christian McCaffrey' AND owner_name = 'Chris' AND season_id = 2022 AND game_week = 10;",
+    "gold_tables": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "pred_tables": "\u00abFact_Player_Performance_Weekly\u00bb"
+  },
+  {
+    "question": "Which manager has the highest career winning percentage?",
+    "gold_intent": "sql_query",
+    "pred_intent": "sql_query",
+    "gold_sql": "SELECT owner_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage DESC LIMIT 1",
+    "pred_sql": "SELECT owner_name FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage DESC LIMIT 1",
+    "gold_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "pred_tables": "\u00abFact_Manager_Career_Leaderboard\u00bb"
+  },
+  {
+    "question": "How many times has Dan beaten Will in their history?",
+    "gold_intent": "sql_query",
+    "pred_intent": "league_history"
+  },
+  {
+    "question": "What was the biggest blowout game in the 2022 season?",
+    "gold_intent": "sql_query",
+    "pred_intent": "sql_query",
+    "gold_sql": "SELECT manager_name, opponent_name, margin_of_victory FROM Fact_Matchup_History_Wide WHERE season_id = 2022 ORDER BY margin_of_victory DESC LIMIT 1",
+    "pred_sql": "SELECT margin_of_victory, nfl_week, manager_team, opponent_team \nFROM Fact_Matchup_History_Wide \nWHERE season_id = 2022 \nORDER BY margin_of_victory DESC \nLIMIT 1;",
+    "gold_tables": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "pred_tables": "\u00abFact_Matchup_History_Wide\u00bb"
+  },
+  {
+    "question": "Who are the managers that have never won a ring?",
+    "gold_intent": "league_history",
+    "pred_intent": "league_history"
+  },
+  {
+    "question": "Who drafted Justin Jefferson in 2022 and what was the pick number?",
+    "gold_intent": "sql_query",
+    "pred_intent": "sql_query",
+    "gold_sql": "SELECT owner_name, pick_overall FROM Fact_Draft_Performance_Analysis WHERE player_name = 'Justin Jefferson' AND season_id = 2022",
+    "pred_sql": "SELECT owner_name, pick_overall FROM Fact_Draft_Performance_Analysis WHERE player_name = 'Justin Jefferson' AND season_id = 2022",
+    "gold_tables": [
+      "Fact_Draft_Performance_Analysis"
+    ],
+    "pred_tables": "\u00abFact_Draft_Performance_Analysis\u00bb, \u00abFact_Player_Master_Profile\u00bb"
+  }
+]
