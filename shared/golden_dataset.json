@@ -80,7 +80,7 @@
     "selected_tables": [
       "Fact_Matchup_History_Wide"
     ],
-    "sql": "SELECT manager_name, opponent_name, margin_of_victory FROM Fact_Matchup_History_Wide WHERE season_id = 2022 ORDER BY margin_of_victory DESC LIMIT 1",
+    "sql": "SELECT manager_name, opponent_name, margin_of_victory FROM Fact_Matchup_History_Wide WHERE season_id = 2022 AND outcome = 'Win' ORDER BY margin_of_victory DESC LIMIT 1",
     "answer": "The biggest blowout of 2022 was when {{manager_name}} beat {{opponent_name}} by {{margin_of_victory}} points."
   },
   {
@@ -136,14 +136,14 @@
   },
   {
     "question": "Did Fitz make the playoffs in 2019?",
-    "reasoning": "Check Fact_Team_Season_Standings for Fitz in 2019. Look at final_standing or infer from table logic (usually top 4/6). Assuming standing check.",
+    "reasoning": "Check for the existence of any 'Playoff' category matchups for Fitz during the 2019 season in the Fact_Matchup_History_Wide table.",
     "intent": "sql_query",
     "category": "standings_titles",
     "selected_tables": [
-      "Fact_Team_Season_Standings"
+      "Fact_Matchup_History_Wide"
     ],
-    "sql": "SELECT final_standing FROM Fact_Team_Season_Standings WHERE owner_name = 'Fitz' AND season_id = 2019",
-    "answer": "In 2019, Fitz finished in position {{final_standing}}."
+    "sql": "SELECT CASE WHEN EXISTS (SELECT 1 FROM Fact_Matchup_History_Wide WHERE season_id = 2019 AND matchup_category = 'Playoff' AND manager_name = 'Fitz') THEN TRUE ELSE FALSE END AS made_playoffs",
+    "answer": "The status of Fitz making the playoffs in 2019 is: {{made_playoffs}}."
   },
   {
     "question": "How many games has Josh won in his entire career?",
@@ -240,14 +240,14 @@
   },
   {
     "question": "Which draft pick provided the biggest steal in 2021?",
-    "reasoning": "Identify the 'steal' by sorting draft analysis by draft_value_vs_adp or points_over_expected. Using value_vs_adp for 'steal'.",
+    "reasoning": "Identify the 'steal' by sorting draft analysis by points_over_expected. Using points_over_expected for 'steal'.",
     "intent": "sql_query",
     "category": "draft_analytics",
     "selected_tables": [
       "Fact_Draft_Performance_Analysis"
     ],
-    "sql": "SELECT player_name, owner_name, draft_value_vs_adp FROM Fact_Draft_Performance_Analysis WHERE season_id = 2021 ORDER BY draft_value_vs_adp DESC LIMIT 1",
-    "answer": "The biggest steal of 2021 was {{player_name}} drafted by {{owner_name}}, with a value of {{draft_value_vs_adp}} vs ADP."
+    "sql": "SELECT player_name, owner_name, points_over_expected FROM Fact_Draft_Performance_Analysis WHERE season_id = 2021 ORDER BY points_over_expected DESC LIMIT 1",
+    "answer": "The biggest steal of 2021 was {{player_name}} drafted by {{owner_name}}, who scored {{points_over_expected}} points more than expected."
   },
   {
     "question": "Has Zach ever won a championship?",
@@ -271,35 +271,34 @@
   },
   {
     "question": "Who scored more total points in 2020: Sean or Mark?",
-    "reasoning": "Compare total points for two managers in a specific season.",
+    "reasoning": "Compare total seasonal points for two specific managers by summing their weekly scores from the matchup history table for that season.",
     "intent": "sql_query",
     "category": "standings_titles",
     "selected_tables": [
-      "Fact_Team_Season_Standings",
       "Fact_Matchup_History_Wide"
     ],
-    "sql": "SELECT owner_name, career_points_for FROM Fact_Manager_Career_Leaderboard WHERE owner_name IN ('Sean', 'Mark')",
-    "answer": "This requires checking the specific season totals. (Self-correction: Better to sum from Matchup History for a specific year if 'points for' isn't in season standings, but schema implies career. Let's assume aggregation from Weekly or Matchup). SQL: SELECT manager_name, sum(manager_score) as total FROM Fact_Matchup_History_Wide WHERE season_id=2020 and manager_name IN ('Sean','Mark') GROUP BY manager_name"
+    "sql": "SELECT manager_name, SUM(manager_score) as total_points FROM Fact_Matchup_History_Wide WHERE season_id = 2020 AND manager_name IN ('Sean', 'Mark') GROUP BY manager_name ORDER BY total_points DESC",
+    "answer": "In the 2020 season, Sean scored {{total_points}} points and Mark scored {{total_points}} points."
   },
   {
     "question": "How many times did Lac make the playoffs?",
-    "reasoning": "Calculate based on playoff rate or count standing table entries where standing <= playoff threshold. Or use Career Leaderboard if available. Using leaderboard metric.",
+    "reasoning": "Identify the manager 'Lac' and count the number of unique seasons where they participated in a playoff matchup by filtering Fact_Matchup_History_Wide by manager_name and matchup_category.",
     "intent": "sql_query",
     "category": "manager_career",
     "selected_tables": [
-      "Fact_Manager_Career_Leaderboard"
+      "Fact_Matchup_History_Wide"
     ],
-    "sql": "SELECT career_playoff_rate, total_seasons_active FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Lac' -- (Requires calculation if raw count not stored, but snippet shows rate)",
-    "answer": "Lac has a career playoff rate of {{career_playoff_rate}}%."
+    "sql": "SELECT COUNT(DISTINCT season_id) AS playoff_appearances FROM Fact_Matchup_History_Wide WHERE manager_name = 'Lac' AND matchup_category = 'Playoff';",
+    "answer": "Lac has made the playoffs {{playoff_appearances}} times."
   },
   {
-    "question": "What is the 'Mercury Meltdown'?",
+    "question": "What was the punishment when Jake lost the league?",
     "reasoning": "Direct lore lookup.",
     "intent": "league_history",
     "category": "league_history",
     "selected_tables": [],
     "sql": "NONE",
-    "answer": "The 'Mercury Meltdown' refers to 2019 when Jake lost the Sacko and performed Freddie Mercury karaoke at home due to COVID, which the league considers a 'cop-out'."
+    "answer": "The punishment for Jake losing the league in 2019 was performing Freddie Mercury karaoke at home due to COVID, which the league considers a 'cop-out'."
   },
   {
     "question": "Who was the lowest scoring team in Week 8 of 2021?",
@@ -313,13 +312,13 @@
     "answer": "{{manager_name}} had the lowest score in Week 8, 2021 with {{manager_score}} points."
   },
   {
-    "question": "Are we doing a snake draft or auction this year?",
+    "question": "Does the league do a snake draft or auction?",
     "reasoning": "Rule lookup regarding draft format.",
     "intent": "league_rules",
     "category": "league_rules",
     "selected_tables": [],
     "sql": "NONE",
-    "answer": "The league uses a Snake draft format, known as 'The Road Draft', which includes an in-person component with a rotating annual location."
+    "answer": "The league uses a Snake draft."
   },
   {
     "question": "Which QB had the most passing yards in 2023?",
