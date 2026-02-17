@@ -22,6 +22,7 @@ export interface LogEvent {
 
     // For teacher-student
     category?: string;           // Query category for analysis
+    promptVersion?: string;  // Track which prompt artifact was used
 }
 
 class Logger {
@@ -34,16 +35,18 @@ class Logger {
         sqlGenerated: string;
         dataRows: number;
         answer: string;
-        durationMs: number;
+        durationMs?: number;
         thoughtProcess?: string[];
         tablesUsed?: string[];
         category?: string;
+        promptVersion?: string;
     }): string {
         const event: LogEvent = {
             id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
             type: 'query',
-            ...data
+            ...data,
+            promptVersion: data.promptVersion || ((window as any).compiledPrograms ? 'optimized' : 'base')
         };
 
         this.addEvent(event);
@@ -85,42 +88,25 @@ class Logger {
         }
     }
 
+    // Helper method to get logs by feedback value
+    private static getByFeedback(positive: boolean): LogEvent[] {
+        const allLogs = this.getAllLogs();
+        return allLogs.filter(e => e.type === 'feedback' && (positive ? e.feedbackValue! > 0 : e.feedbackValue! < 0))
+            .map(feedback => {
+                const query = allLogs.find(q => q.id === feedback.queryId && q.type === 'query');
+                return query ? { ...query, feedbackValue: feedback.feedbackValue, feedbackComment: feedback.feedbackComment } : null;
+            })
+            .filter(Boolean) as LogEvent[];
+    }
+
     // Get queries with negative feedback (failures - need Teacher labeling)
     static getFailures(): LogEvent[] {
-        const logs = this.getAllLogs();
-        const feedbackMap = new Map<string, LogEvent>();
-
-        logs.filter(l => l.type === 'feedback').forEach(feedback => {
-            if (feedback.queryId && feedback.feedbackValue === -1) {
-                feedbackMap.set(feedback.queryId, feedback);
-            }
-        });
-
-        return logs
-            .filter(l => l.type === 'query' && feedbackMap.has(l.id))
-            .map(query => ({
-                ...query,
-                feedbackComment: feedbackMap.get(query.id)?.feedbackComment
-            }));
+        return this.getByFeedback(false);
     }
 
     // Get queries with positive feedback (successes - already golden!)
     static getSuccesses(): LogEvent[] {
-        const logs = this.getAllLogs();
-        const feedbackMap = new Map<string, LogEvent>();
-
-        logs.filter(l => l.type === 'feedback').forEach(feedback => {
-            if (feedback.queryId && feedback.feedbackValue === 1) {
-                feedbackMap.set(feedback.queryId, feedback);
-            }
-        });
-
-        return logs
-            .filter(l => l.type === 'query' && feedbackMap.has(l.id))
-            .map(query => ({
-                ...query,
-                feedbackComment: feedbackMap.get(query.id)?.feedbackComment
-            }));
+        return this.getByFeedback(true);
     }
 
     // Export failures for Teacher model to label

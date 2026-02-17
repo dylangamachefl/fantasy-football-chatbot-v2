@@ -2,11 +2,13 @@ import json
 import dspy
 from suite.evaluation.dspy_signatures import IntentRouter, TableRouterSignature, SQLGeneratorSignature
 from suite.evaluation.eval_config import (
-    GOLDEN_DATASET, 
     SCHEMA_FILE, 
     JUDGE_MODEL, 
     OLLAMA_BASE_URL
 )
+
+# Use test dataset for unbiased evaluation
+TEST_DATASET = "shared/test.json"
 
 def load_schema_string():
     with open(SCHEMA_FILE, 'r') as f:
@@ -43,8 +45,10 @@ def main():
     sql_generator.load_state(artifacts['sql_generator'])
 
     # 4. Load Dataset
-    with open(GOLDEN_DATASET, 'r') as f:
+    with open(TEST_DATASET, 'r') as f:
         golden_data = json.load(f)
+    
+    print(f"Loaded {len(golden_data)} test examples from {TEST_DATASET}")
 
     schema_str = load_schema_string()
     table_descriptions = load_table_descriptions()
@@ -52,8 +56,8 @@ def main():
     results = []
     print(f"Benchmarking {len(golden_data)} examples...")
 
-    # Limit to 10 for quick verification
-    for item in golden_data[:10]:
+    # Evaluate on full test set (no limiting)
+    for item in golden_data:
         question = item['question']
         print(f"\nProcessing: {question}")
 

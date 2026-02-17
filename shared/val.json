@@ -1,0 +1,55 @@
+[
+  {
+    "question": "Which manager has the highest career winning percentage?",
+    "reasoning": "Query the career leaderboard for the maximum win percentage.",
+    "intent": "sql_query",
+    "category": "manager_career",
+    "selected_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "sql": "SELECT owner_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage DESC LIMIT 1",
+    "answer": "{{owner_name}} holds the highest career winning percentage at {{career_win_percentage}}%."
+  },
+  {
+    "question": "Who had the best regular season record in 2015?",
+    "reasoning": "Find the owner with max wins in 2015 regular season.",
+    "intent": "sql_query",
+    "category": "standings_titles",
+    "selected_tables": [
+      "Fact_Team_Season_Standings"
+    ],
+    "sql": "SELECT owner_name, regular_season_wins FROM Fact_Team_Season_Standings WHERE season_id = 2015 ORDER BY regular_season_wins DESC LIMIT 1",
+    "answer": "{{owner_name}} had the best regular season record in 2015 with {{regular_season_wins}} wins."
+  },
+  {
+    "question": "How many times has Dan beaten Will in their history?",
+    "reasoning": "This requires a head-to-head count. Query Fact_Matchup_History_Wide where manager is Dan, opponent is Will, and outcome is Win.",
+    "intent": "sql_query",
+    "category": "matchup_history",
+    "selected_tables": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "sql": "SELECT COUNT(*) as wins_vs_will FROM Fact_Matchup_History_Wide WHERE manager_name = 'Dan' AND opponent_name = 'Will' AND outcome = 'Win'",
+    "answer": "Dan has defeated Will {{wins_vs_will}} times in their history."
+  },
+  {
+    "question": "Who are the managers that have never won a ring?",
+    "reasoning": "This is a lore question regarding the 'Ringless Council' defined in league_history.json.",
+    "intent": "league_history",
+    "category": "league_history",
+    "selected_tables": [],
+    "sql": "NONE",
+    "answer": "The 'Ringless Council' consists of Dylan, Will, Dan, Lac, and Fitz, who remain without a championship ring despite 15+ years of effort."
+  },
+  {
+    "question": "How many games has Josh won in his entire career?",
+    "reasoning": "Simple lookup in the career leaderboard table.",
+    "intent": "sql_query",
+    "category": "manager_career",
+    "selected_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "sql": "SELECT career_wins FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Josh'",
+    "answer": "Josh has won {{career_wins}} games in his career."
+  }
+]

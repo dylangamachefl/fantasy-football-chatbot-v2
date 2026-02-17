@@ -1,0 +1,110 @@
+[
+  {
+    "question": "Which manager has the highest career winning percentage?",
+    "reasoning": "Query the career leaderboard for the maximum win percentage.",
+    "intent": "sql_query",
+    "category": "manager_career",
+    "selected_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "sql": "SELECT owner_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage DESC LIMIT 1",
+    "answer": "{{owner_name}} holds the highest career winning percentage at {{career_win_percentage}}%."
+  },
+  {
+    "question": "Who had the best regular season record in 2015?",
+    "reasoning": "Find the owner with max wins in 2015 regular season.",
+    "intent": "sql_query",
+    "category": "standings_titles",
+    "selected_tables": [
+      "Fact_Team_Season_Standings"
+    ],
+    "sql": "SELECT owner_name, regular_season_wins FROM Fact_Team_Season_Standings WHERE season_id = 2015 ORDER BY regular_season_wins DESC LIMIT 1",
+    "answer": "{{owner_name}} had the best regular season record in 2015 with {{regular_season_wins}} wins."
+  },
+  {
+    "question": "How many times has Dan beaten Will in their history?",
+    "reasoning": "This requires a head-to-head count. Query Fact_Matchup_History_Wide where manager is Dan, opponent is Will, and outcome is Win.",
+    "intent": "sql_query",
+    "category": "matchup_history",
+    "selected_tables": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "sql": "SELECT COUNT(*) as wins_vs_will FROM Fact_Matchup_History_Wide WHERE manager_name = 'Dan' AND opponent_name = 'Will' AND outcome = 'Win'",
+    "answer": "Dan has defeated Will {{wins_vs_will}} times in their history."
+  },
+  {
+    "question": "Who are the managers that have never won a ring?",
+    "reasoning": "This is a lore question regarding the 'Ringless Council' defined in league_history.json.",
+    "intent": "league_history",
+    "category": "league_history",
+    "selected_tables": [],
+    "sql": "NONE",
+    "answer": "The 'Ringless Council' consists of Dylan, Will, Dan, Lac, and Fitz, who remain without a championship ring despite 15+ years of effort."
+  },
+  {
+    "question": "How many games has Josh won in his entire career?",
+    "reasoning": "Simple lookup in the career leaderboard table.",
+    "intent": "sql_query",
+    "category": "manager_career",
+    "selected_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "sql": "SELECT career_wins FROM Fact_Manager_Career_Leaderboard WHERE owner_name = 'Josh'",
+    "answer": "Josh has won {{career_wins}} games in his career."
+  },
+  {
+    "question": "Hey, who is the best manager currently?",
+    "reasoning": "Subjective conversational question. Should route to looking up the career leader in wins or points to provide a data-backed opinion.",
+    "intent": "sql_query",
+    "category": "manager_career",
+    "selected_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "sql": "SELECT owner_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage DESC LIMIT 1",
+    "answer": "Statistically, {{owner_name}} is the best manager with a win rate of {{career_win_percentage}}%."
+  },
+  {
+    "question": "Show me the Week 1 scores for all managers in 2023.",
+    "reasoning": "Select all manager scores for a specific week and season.",
+    "intent": "sql_query",
+    "category": "weekly_performance",
+    "selected_tables": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "sql": "SELECT manager_name, manager_score FROM Fact_Matchup_History_Wide WHERE season_id = 2023 AND nfl_week = 1",
+    "answer": "Week 1 2023 Scores: {{manager_name}} scored {{manager_score}}."
+  },
+  {
+    "question": "Who has won the most championships in league history according to the stats?",
+    "reasoning": "This asks for an aggregation of titles. Query Fact_Manager_Career_Leaderboard and order by championships_won descending.",
+    "intent": "sql_query",
+    "category": "manager_career",
+    "selected_tables": [
+      "Fact_Manager_Career_Leaderboard"
+    ],
+    "sql": "SELECT owner_name, championships_won FROM Fact_Manager_Career_Leaderboard ORDER BY championships_won DESC LIMIT 1",
+    "answer": "The manager with the most championships is {{owner_name}} with {{championships_won}} rings."
+  },
+  {
+    "question": "What was the biggest blowout game in the 2022 season?",
+    "reasoning": "Find the maximum margin of victory in 2022. Return the winner, loser, and margin.",
+    "intent": "sql_query",
+    "category": "matchup_history",
+    "selected_tables": [
+      "Fact_Matchup_History_Wide"
+    ],
+    "sql": "SELECT manager_name, opponent_name, margin_of_victory FROM Fact_Matchup_History_Wide WHERE season_id = 2022 AND outcome = 'Win' ORDER BY margin_of_victory DESC LIMIT 1",
+    "answer": "The biggest blowout of 2022 was when {{manager_name}} beat {{opponent_name}} by {{margin_of_victory}} points."
+  },
+  {
+    "question": "How many rushing touchdowns did Saquon Barkley have in Week 2, 2023?",
+    "reasoning": "Specific player stat lookup.",
+    "intent": "sql_query",
+    "category": "weekly_performance",
+    "selected_tables": [
+      "Fact_Player_Performance_Weekly"
+    ],
+    "sql": "SELECT rush_tds FROM Fact_Player_Performance_Weekly WHERE player_name = 'Saquon Barkley' AND season_id = 2023 AND game_week = 2",
+    "answer": "Saquon Barkley had {{rush_tds}} rushing touchdowns in Week 2, 2023."
+  }
+]

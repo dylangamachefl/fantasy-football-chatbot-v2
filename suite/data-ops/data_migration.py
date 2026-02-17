@@ -29,10 +29,11 @@ def run_migration():
     for table in TABLES_TO_MIGRATE:
         print(f"Materializing {table}...")
         # Check if it's a table or view and drop accordingly
-        type_res = tgt_conn.execute(f"SELECT type FROM sqlite_master WHERE name='{table}'").fetchone()
+        type_res = tgt_conn.execute("SELECT type FROM sqlite_master WHERE name=?", (table,)).fetchone()
         if type_res:
             obj_type = type_res[0].upper()
-            tgt_conn.execute(f"DROP {obj_type} IF EXISTS {table}")
+            # Use quoted identifier for DDL since SQLite doesn't support parameters in DDL
+            tgt_conn.execute(f'DROP {obj_type} IF EXISTS "{table}"')
             
         tgt_conn.execute(f"CREATE TABLE {table} AS SELECT * FROM source.{table}")
         

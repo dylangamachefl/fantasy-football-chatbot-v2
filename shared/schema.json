@@ -9,7 +9,7 @@
         "game_week": "The week of the NFL season for this stat line.",
         "player_name": "The full name of the NFL player.",
         "player_position": "The position of the player.",
-        "owner_name": "The display name of the fantasy owner.",
+        "manager_name": "The display name of the fantasy owner.",
         "fantasy_team_name": "The name of the fantasy team for that season.",
         "is_starting": "Indicates if the player was in a starting lineup position.",
         "total_fantasy_points": "The player's total fantasy points for this specific week.",
@@ -57,7 +57,7 @@
       "columns": {
         "season_id": "The season year of the draft.",
         "player_name": "The name of the drafted player.",
-        "owner_name": "The name of the owner who made the pick.",
+        "manager_name": "The name of the owner who made the pick.",
         "pick_overall": "The overall pick number in the entire draft.",
         "draft_value_vs_adp": "Indicates how much of a 'reach' or 'steal' the pick was compared to market ADP.",
         "total_season_points": "Total fantasy points the player scored during that entire season.",
@@ -72,7 +72,7 @@
       "description": "Final team records and standings for every season.",
       "columns": {
         "season_id": "The season year.",
-        "owner_name": "The name of the team's owner.",
+        "manager_name": "The name of the team's owner.",
         "regular_season_wins": "Number of wins during the regular season only.",
         "final_standing": "The team's final rank including playoffs.",
         "is_champion": "Indicates if the team won the championship."
@@ -82,7 +82,7 @@
       "table_name": "Fact_Manager_Career_Leaderboard",
       "description": "Aggregated career statistics for every owner.",
       "columns": {
-        "owner_name": "The display name of the fantasy owner.",
+        "manager_name": "The display name of the fantasy owner.",
         "career_wins": "Total wins including regular season and playoffs.",
         "career_win_percentage": "The owner's career winning percentage.",
         "championships_won": "The total number of championships won.",

@@ -27,15 +27,33 @@ class TableRouterSignature(dspy.Signature):
     is_sql_query = dspy.OutputField(desc="Boolean indicating if a SQL query is needed")
 
 class SQLGeneratorSignature(dspy.Signature):
+    """Generate a valid SQLite query to answer the question.
+    
+    Check the schema carefully. Ensure all table and column names are correct.
+    Before writing the SQL, think through the entity requirements.
     """
-    Given a user question, a database schema, and optional few-shot examples,
-    generate a correct, optimized SQL query for SQLite.
-    If a previous SQL attempt failed, the error message and previous SQL are provided for correction.
+    
+    question: str = dspy.InputField(desc="User's fantasy football question")
+    db_schema: str = dspy.InputField(desc="Available database schema with tables and columns")
+    examples: str = dspy.InputField(desc="Example queries for context", default="")
+    previous_sql: str = dspy.InputField(desc="Previous SQL attempt if any", default="")
+    error_message: str = dspy.InputField(desc="Error from previous SQL if any", default="")
+    
+    reasoning: str = dspy.OutputField(desc="Reasoning about what data is needed and how to get it")
+    sql_query: str = dspy.OutputField(desc="Valid SQLite SELECT query")
+
+
+class SQLValidatorSignature(dspy.Signature):
+    """Validate and optionally correct a generated SQL query.
+    
+    Check that all table/column names exist in the schema, joins are reasonable,
+    and the query addresses the question intent.
     """
-    question = dspy.InputField()
-    db_schema = dspy.InputField()
-    examples = dspy.InputField(desc="Few-shot examples of question-SQL pairs")
-    previous_sql = dspy.InputField(desc="Optional previous SQL attempt that failed")
-    error_message = dspy.InputField(desc="Optional error message from the previous failed attempt")
-    reasoning = dspy.OutputField(desc="Step-by-step logic for entity selection and calculation")
-    sql_query = dspy.OutputField(desc="The generated SQL query")
+    
+    question: str = dspy.InputField(desc="Original user question")
+    sql_query: str = dspy.InputField(desc="SQL query to validate")
+    db_schema: str = dspy.InputField(desc="Available database schema")
+    
+    is_valid: bool = dspy.OutputField(desc="Whether the SQL is valid")
+    issues: str = dspy.OutputField(desc="List of issues found, empty if valid")
+    corrected_sql_query: str = dspy.OutputField(desc="Corrected SQL query if issues found, else original query")

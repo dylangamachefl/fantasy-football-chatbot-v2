@@ -1,0 +1,520 @@
+[
+    {
+        "question": "Which manager has the highest career win percentage?",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "This requires comparing career stats across all managers. I will select the manager name and win percentage from the career leaderboard and order by percentage descending.",
+        "selected_tables": [
+            "Fact_Manager_Career_Leaderboard"
+        ],
+        "sql": "SELECT manager_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage DESC LIMIT 1",
+        "answer": "The manager with the highest career win percentage is {{manager_name}} with {{career_win_percentage}}%."
+    },
+    {
+        "question": "List the top 5 biggest draft steals in 2022 based on points over expected.",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "I need to analyze draft performance for the 2022 season. I will look at the 'points_scored_over_expected' column to find the best value picks.",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis"
+        ],
+        "sql": "SELECT player_name, manager_name, points_scored_over_expected FROM Fact_Draft_Performance_Analysis WHERE season_id = 2022 ORDER BY points_scored_over_expected DESC LIMIT 5",
+        "answer": "The top 5 draft steals in 2022 were: {{#each result}}{{player_name}} drafted by {{manager_name}} ({{points_scored_over_expected}} pts over expected), {{/each}}"
+    },
+    {
+        "question": "How many times has Dylan beaten Mark in the regular season?",
+        "intent": "sql_query",
+        "category": "matchup_history",
+        "reasoning": "This involves a specific head-to-head record. I need to query the matchup history where the manager is Dylan, the opponent is Mark, the outcome is 'Win', and the category is 'Regular Season'.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT COUNT(*) as win_count FROM Fact_Matchup_History_Wide WHERE manager_name = 'Dylan' AND opponent_name = 'Mark' AND outcome = 'Win' AND matchup_category = 'Regular Season'",
+        "answer": "Dylan has beaten Mark {{win_count}} times in the regular season."
+    },
+    {
+        "question": "What happens if you finish in last place?",
+        "intent": "league_rules",
+        "category": "league_lore",
+        "reasoning": "The user is asking about the consequences of losing (the Sacko). I need to check the 'Punishment Protocol' in the rules.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "If you finish in last place (the 'Sacko'), you are required to complete a public humiliation task, famously known as the Punishment Protocol."
+    },
+    {
+        "question": "Who had the best draft of 2021 based on total points produced by drafted players?",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "I need to aggregate the total season points for all players drafted by each manager in 2021 to see whose draft class produced the most.",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis"
+        ],
+        "sql": "SELECT manager_name, SUM(total_season_points) as total_draft_class_points FROM Fact_Draft_Performance_Analysis WHERE season_id = 2021 GROUP BY manager_name ORDER BY total_draft_class_points DESC LIMIT 1",
+        "answer": "{{manager_name}} had the best draft in 2021, with their picks scoring a combined {{total_draft_class_points}} points."
+    },
+    {
+        "question": "Compare Sean and Chris's total career fantasy points.",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "I need to fetch the career points for for specific managers (Sean and Chris) to compare them.",
+        "selected_tables": [
+            "Fact_Manager_Career_Leaderboard"
+        ],
+        "sql": "SELECT manager_name, career_points_for FROM Fact_Manager_Career_Leaderboard WHERE manager_name IN ('Sean', 'Chris')",
+        "answer": "Career Points: {{#each result}}{{manager_name}}: {{career_points_for}} points. {{/each}}"
+    },
+    {
+        "question": "Who was the first ever champion of the league?",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "This refers to the inaugural season mentioned in the league history file.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Chris claimed the first-ever championship (The Inaugural Title) in the 2009 season."
+    },
+    {
+        "question": "Which player scored the most points in a single game while on Sean's bench?",
+        "intent": "sql_query",
+        "category": "weekly_performance",
+        "reasoning": "I need to find a bench player ('is_starting' = false or 0) on Sean's team with the max weekly points.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT player_name, total_fantasy_points, game_week, season_id FROM Fact_Player_Performance_Weekly WHERE manager_name = 'Sean' AND is_starting = 0 ORDER BY total_fantasy_points DESC LIMIT 1",
+        "answer": "The highest scoring bench player for Sean was {{player_name}} with {{total_fantasy_points}} points in Week {{game_week}}, {{season_id}}."
+    },
+    {
+        "question": "Show me the 2023 playoff bracket format.",
+        "intent": "league_rules",
+        "category": "league_rules",
+        "reasoning": "The user is asking about the playoff structure specifically for the 2023 season expansion.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Starting in 2023, the league uses a 6-team playoff format. The top 2 seeds get a 1-week bye, while Semis and Finals are 2-week matchups."
+    },
+    {
+        "question": "Who are the members of the Ringless Council?",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "This is a specific term from the league history regarding managers who haven't won.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "The Ringless Council consists of Dylan, Will, Dan, Lac, and Fitz, who remain without a championship ring despite 15+ years of effort."
+    },
+    {
+        "question": "What is the average margin of victory in games between Dan and Lac?",
+        "intent": "sql_query",
+        "category": "matchup_history",
+        "reasoning": "I need to calculate the average of the 'margin_of_victory' column for matchups between Dan and Lac.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT AVG(margin_of_victory) as avg_margin FROM Fact_Matchup_History_Wide WHERE manager_name = 'Dan' AND opponent_name = 'Lac'",
+        "answer": "The average margin of victory in Dan vs. Lac games is {{avg_margin}} points."
+    },
+    {
+        "question": "Who was the biggest bust of the 2020 draft?",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "A 'bust' implies a high pick that underperformed. I'll search for players with the largest negative difference in 'points_scored_over_expected' for the 2020 season.",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis"
+        ],
+        "sql": "SELECT player_name, manager_name, points_scored_over_expected, pick_overall FROM Fact_Draft_Performance_Analysis WHERE season_id = 2020 ORDER BY points_scored_over_expected ASC LIMIT 1",
+        "answer": "The biggest bust of 2020 was {{player_name}} (Pick {{pick_overall}}), who scored {{points_scored_over_expected}} points under expectation for {{manager_name}}."
+    },
+    {
+        "question": "Hello there fantasy bot!",
+        "intent": "conversational",
+        "category": "chat",
+        "reasoning": "User is greeting the system.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Hello! I am ready to analyze your league's history, stats, and draft regrets. What would you like to know?"
+    },
+    {
+        "question": "Which manager has the most championships?",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "I need to find the maximum value in the championships_won column.",
+        "selected_tables": [
+            "Fact_Manager_Career_Leaderboard"
+        ],
+        "sql": "SELECT manager_name, championships_won FROM Fact_Manager_Career_Leaderboard ORDER BY championships_won DESC LIMIT 1",
+        "answer": "{{manager_name}} holds the record with {{championships_won}} championships."
+    },
+    {
+        "question": "List all players who scored over 300 points in the 2022 season.",
+        "intent": "sql_query",
+        "category": "season_stats",
+        "reasoning": "I need to query the season leaders table for 2022 where total points exceeded 300.",
+        "selected_tables": [
+            "Fact_Player_Season_Stat_Leaders"
+        ],
+        "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2022 AND total_fantasy_points > 300 ORDER BY total_fantasy_points DESC",
+        "answer": "The following players scored over 300 points in 2022: {{#each result}}{{player_name}} ({{total_fantasy_points}}), {{/each}}"
+    },
+    {
+        "question": "Why did Jake sing Freddie Mercury karaoke?",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "This is a specific narrative event linked to a Sacko punishment.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Jake performed Freddie Mercury karaoke as his Sacko punishment for the 2019 season (The Mercury Meltdown). He did it at home due to COVID, which the league considers a 'cop-out'."
+    },
+    {
+        "question": "Calculate Will's win percentage specifically in the playoffs.",
+        "intent": "sql_query",
+        "category": "matchup_history",
+        "reasoning": "I need to filter matchups for Will where the category is 'Playoff' and calculate wins divided by total games.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT CAST(SUM(CASE WHEN outcome = 'Win' THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as playoff_win_pct FROM Fact_Matchup_History_Wide WHERE manager_name = 'Will' AND matchup_category = 'Playoff'",
+        "answer": "Will has a playoff win percentage of {{playoff_win_pct}}%."
+    },
+    {
+        "question": "Who has the most career rushing yards among all players?",
+        "intent": "sql_query",
+        "category": "player_career",
+        "reasoning": "This requires aggregating weekly rushing yards from the player performance table for every player across all seasons.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT player_name, SUM(rush_yds) as career_rush_yds FROM Fact_Player_Performance_Weekly GROUP BY player_name ORDER BY career_rush_yds DESC LIMIT 1",
+        "answer": "{{player_name}} has the most recorded rushing yards in league history with {{career_rush_yds}} yards."
+    },
+    {
+        "question": "Did Fitz make the playoffs in 2018?",
+        "intent": "sql_query",
+        "category": "season_standings",
+        "reasoning": "I can verify this by checking the final standing or if the team has an 'is_champion' flag, but usually, standings indicate rank. Alternatively, I can check if they played a 'Playoff' matchup. The simplest is to check Fact_Team_Season_Standings for rank, assuming top 4 made it in 2018 (Legacy Format).",
+        "selected_tables": [
+            "Fact_Team_Season_Standings"
+        ],
+        "sql": "SELECT final_standing FROM Fact_Team_Season_Standings WHERE manager_name = 'Fitz' AND season_id = 2018",
+        "answer": "In 2018, Fitz finished with a rank of {{final_standing}}."
+    },
+    {
+        "question": "What is the league buy-in?",
+        "intent": "league_rules",
+        "category": "league_rules",
+        "reasoning": "Asking about current financial rules.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "The buy-in was increased from $20 to $50 around 2023 during the league expansion."
+    },
+    {
+        "question": "Who won the Sacko in 2017?",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "Looking for the 2017 loser in the history file.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Dylan lost the Sacko in 2017, leading to 'The Stand-Up Set' punishment."
+    },
+    {
+        "question": "Find the game with the highest combined score in league history.",
+        "intent": "sql_query",
+        "category": "matchup_history",
+        "reasoning": "I need to add manager_score and opponent_score in the matchup table and find the max. Note: The table is symmetric, so just taking the max of any row works.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT manager_name, opponent_name, season_id, nfl_week, (manager_score + opponent_score) as total_game_points FROM Fact_Matchup_History_Wide ORDER BY total_game_points DESC LIMIT 1",
+        "answer": "The highest scoring game was between {{manager_name}} and {{opponent_name}} in Week {{nfl_week}}, {{season_id}}, with a combined {{total_game_points}} points."
+    },
+    {
+        "question": "How many rushing touchdowns did Josh's team score in 2021?",
+        "intent": "sql_query",
+        "category": "weekly_performance",
+        "reasoning": "Summing rushing touchdowns for all players on Josh's team where is_starting is true (implied for 'team score', usually) in 2021.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT SUM(rush_tds) as total_rush_tds FROM Fact_Player_Performance_Weekly WHERE manager_name = 'Josh' AND season_id = 2021 AND is_starting = 1",
+        "answer": "Josh's starting lineup scored {{total_rush_tds}} rushing touchdowns in 2021."
+    },
+    {
+        "question": "Who is the best manager to never win a ring?",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "I want the manager with the most wins who has 0 championships.",
+        "selected_tables": [
+            "Fact_Manager_Career_Leaderboard"
+        ],
+        "sql": "SELECT manager_name, career_wins FROM Fact_Manager_Career_Leaderboard WHERE championships_won = 0 ORDER BY career_wins DESC LIMIT 1",
+        "answer": "The winningest manager without a ring is {{manager_name}} with {{career_wins}} career wins."
+    },
+    {
+        "question": "What is the draft format?",
+        "intent": "league_rules",
+        "category": "league_rules",
+        "reasoning": "Asking about the draft setup.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "The league uses a 'Road Draft' format, which is a snake draft that always includes an in-person component with a rotating annual location."
+    },
+    {
+        "question": "Which Quarterback has been drafted the most times in the first round?",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "This requires joining draft analysis with player data (to verify position, though often name is enough if we know they are QBs). I'll check for players with 'QB' position in the master profile and filter draft picks where pick_overall <= 10 or 12 depending on league size. Let's assume Round 1 is top 10 for simplicity or check rank.",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis",
+            "Fact_Player_Master_Profile"
+        ],
+        "sql": "SELECT d.player_name, COUNT(*) as times_drafted_rnd1 FROM Fact_Draft_Performance_Analysis d JOIN Fact_Player_Master_Profile p ON d.player_name = p.player_name WHERE p.primary_position = 'QB' AND d.pick_overall <= 12 GROUP BY d.player_name ORDER BY times_drafted_rnd1 DESC LIMIT 1",
+        "answer": "{{player_name}} has been drafted in the first round {{times_drafted_rnd1}} times."
+    },
+    {
+        "question": "Tell me about Dylan's 2018 season.",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "The user asks about a specific season narrative for Dylan found in history.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "In 2018, Dylan suffered his second consecutive Sacko loss (The Yacht Butler), resulting in him serving as a butler for the league on a group cruise."
+    },
+    {
+        "question": "Who has the worst career winning percentage?",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "Inverse of the leader query.",
+        "selected_tables": [
+            "Fact_Manager_Career_Leaderboard"
+        ],
+        "sql": "SELECT manager_name, career_win_percentage FROM Fact_Manager_Career_Leaderboard ORDER BY career_win_percentage ASC LIMIT 1",
+        "answer": "{{manager_name}} has the lowest career win percentage at {{career_win_percentage}}%."
+    },
+    {
+        "question": "How many points did Lac score in Week 10 of 2020?",
+        "intent": "sql_query",
+        "category": "weekly_performance",
+        "reasoning": "Simple aggregate of weekly points for a specific manager, week, and season.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT SUM(total_fantasy_points) as week_score FROM Fact_Player_Performance_Weekly WHERE manager_name = 'Lac' AND game_week = 10 AND season_id = 2020 AND is_starting = 1",
+        "answer": "Lac scored {{week_score}} points in Week 10 of 2020."
+    },
+    {
+        "question": "Who will win the Super Bowl in 2028?",
+        "intent": "conversational",
+        "category": "edge_case",
+        "reasoning": "Impossible query about future real-world events.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "I can't predict the future, but I can tell you who won your fantasy league in past seasons!"
+    },
+    {
+        "question": "Which manager has the most 'Playoff' wins?",
+        "intent": "sql_query",
+        "category": "matchup_history",
+        "reasoning": "Counting wins where category is 'Playoff'.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT manager_name, COUNT(*) as playoff_wins FROM Fact_Matchup_History_Wide WHERE outcome = 'Win' AND matchup_category = 'Playoff' GROUP BY manager_name ORDER BY playoff_wins DESC LIMIT 1",
+        "answer": "{{manager_name}} leads the league with {{playoff_wins}} playoff wins."
+    },
+    {
+        "question": "List the top 3 RBs by fantasy points in 2019.",
+        "intent": "sql_query",
+        "category": "season_stats",
+        "reasoning": "Filtering season leaders by position RB.",
+        "selected_tables": [
+            "Fact_Player_Season_Stat_Leaders"
+        ],
+        "sql": "SELECT player_name, total_fantasy_points FROM Fact_Player_Season_Stat_Leaders WHERE season_id = 2019 AND player_position = 'RB' ORDER BY total_fantasy_points DESC LIMIT 3",
+        "answer": "The top 3 RBs in 2019 were: {{#each result}}{{player_name}} ({{total_fantasy_points}}), {{/each}}"
+    },
+    {
+        "question": "How many active seasons has Dan played?",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "Can count distinct season_ids from standings or look at career aggregates if 'years_active' existed, but 'Fact_Team_Season_Standings' is safer for count.",
+        "selected_tables": [
+            "Fact_Team_Season_Standings"
+        ],
+        "sql": "SELECT COUNT(DISTINCT season_id) as seasons_played FROM Fact_Team_Season_Standings WHERE manager_name = 'Dan'",
+        "answer": "Dan has played in {{seasons_played}} seasons."
+    },
+    {
+        "question": "Who was the lowest drafted player to finish as the RB1 overall?",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "I need to find a player who finished with 'finish_rank' = 1 at 'RB' position, and order by 'pick_overall' descending (higher number = later pick).",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis"
+        ],
+        "sql": "SELECT player_name, season_id, pick_overall FROM Fact_Draft_Performance_Analysis WHERE finish_rank = 1 AND draft_rank > 0 ORDER BY pick_overall DESC LIMIT 1",
+        "answer": "{{player_name}} ({{season_id}}) was the biggest steal for an RB1, drafted at overall pick {{pick_overall}}."
+    },
+    {
+        "question": "Can I draft a punter?",
+        "intent": "conversational",
+        "category": "edge_case",
+        "reasoning": "Question about roster settings not explicitly in JSON, but implies a rule check.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "The league rules don't explicitly mention kickers or punters, but standard scoring usually excludes punters. Focus on those skill positions!"
+    },
+    {
+        "question": "What is Mark's average season finish rank?",
+        "intent": "sql_query",
+        "category": "manager_career",
+        "reasoning": "Looking up the pre-calculated average in the career table.",
+        "selected_tables": [
+            "Fact_Manager_Career_Leaderboard"
+        ],
+        "sql": "SELECT avg_final_standing FROM Fact_Manager_Career_Leaderboard WHERE manager_name = 'Mark'",
+        "answer": "Mark's average final standing is {{avg_final_standing}}."
+    },
+    {
+        "question": "Who scored the fewest points in a single week ever?",
+        "intent": "sql_query",
+        "category": "weekly_performance",
+        "reasoning": "Looking for the minimum manager score in matchup history.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT manager_name, manager_score, season_id, nfl_week FROM Fact_Matchup_History_Wide ORDER BY manager_score ASC LIMIT 1",
+        "answer": "{{manager_name}} scored the lowest total ever with {{manager_score}} points in Week {{nfl_week}}, {{season_id}}."
+    },
+    {
+        "question": "Who is the G.O.A.T. according to the stats?",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "Referring to the 'All-Time' milestone in history.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Statistically, Sean is considered the G.O.A.T., holding the record for the most titles with 4 rings."
+    },
+    {
+        "question": "Which manager drafted the most players who finished in the top 10 at their position in 2021?",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "Count players in draft analysis where season is 2021 and finish_rank <= 10, grouped by manager.",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis"
+        ],
+        "sql": "SELECT manager_name, COUNT(*) as top_10_picks FROM Fact_Draft_Performance_Analysis WHERE season_id = 2021 AND finish_rank <= 10 GROUP BY manager_name ORDER BY top_10_picks DESC LIMIT 1",
+        "answer": "{{manager_name}} drafted the most elite talent in 2021 with {{top_10_picks}} top-10 finishers."
+    },
+    {
+        "question": "What is the tiebreaker for playoff seeding?",
+        "intent": "conversational",
+        "category": "edge_case",
+        "reasoning": "This specific rule isn't in the provided `league_rules.json` snippet. I should handle it gracefully.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "I don't have the specific tiebreaker rules in my database. Usually, it's 'Points For', but you should check with the commissioner."
+    },
+    {
+        "question": "How many regular season wins does Nick have?",
+        "intent": "sql_query",
+        "category": "season_standings",
+        "reasoning": "Summing regular season wins from the standings table.",
+        "selected_tables": [
+            "Fact_Team_Season_Standings"
+        ],
+        "sql": "SELECT SUM(regular_season_wins) as total_wins FROM Fact_Team_Season_Standings WHERE manager_name = 'Nick'",
+        "answer": "Nick has {{total_wins}} regular season wins."
+    },
+    {
+        "question": "Did anyone go undefeated in the regular season?",
+        "intent": "sql_query",
+        "category": "season_standings",
+        "reasoning": "Check standings for any team where wins equals the number of games (or losses = 0, though ties exist). Assuming 13 or 14 games, but simpler to check 'Fact_Matchup_History_Wide' for a count of losses = 0 for a season, or check standings if we knew the game count. Let's check if anyone has 0 losses in standings? The table has 'regular_season_wins' but not losses explicitly. Better to query Matchup History.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT manager_name, season_id FROM Fact_Matchup_History_Wide WHERE matchup_category = 'Regular Season' GROUP BY manager_name, season_id HAVING SUM(CASE WHEN outcome = 'Loss' THEN 1 ELSE 0 END) = 0",
+        "answer": "Managers with undefeated regular seasons: {{#each result}}{{manager_name}} ({{season_id}}), {{/each}}"
+    },
+    {
+        "question": "What was the highest scoring position on Jack's team in 2022?",
+        "intent": "sql_query",
+        "category": "weekly_performance",
+        "reasoning": "Sum points by position for Jack in 2022.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT player_position, SUM(total_fantasy_points) as pos_points FROM Fact_Player_Performance_Weekly WHERE manager_name = 'Jack' AND season_id = 2022 AND is_starting = 1 GROUP BY player_position ORDER BY pos_points DESC LIMIT 1",
+        "answer": "The {{player_position}} position scored the most for Jack in 2022 with {{pos_points}} points."
+    },
+    {
+        "question": "Who was the 'TikTok Failure'?",
+        "intent": "league_history",
+        "category": "league_lore",
+        "reasoning": "Referring to the 2020 milestone in history.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Jack was the 'TikTok Failure' in 2020. After losing the Sacko, he failed to deliver on a month of cooking tutorials, starting the 'Punishment Recession'."
+    },
+    {
+        "question": "Compare the average draft rank of QBs vs RBs in 2023.",
+        "intent": "sql_query",
+        "category": "draft_analytics",
+        "reasoning": "Join draft analysis with player profile (for position) or assume position is known. The schema for Draft Analysis doesn't have position, so we MUST join Player Master or verify if 'player_name' suffices. We need `Fact_Player_Master_Profile` for position.",
+        "selected_tables": [
+            "Fact_Draft_Performance_Analysis",
+            "Fact_Player_Master_Profile"
+        ],
+        "sql": "SELECT p.primary_position, AVG(d.pick_overall) as avg_pick FROM Fact_Draft_Performance_Analysis d JOIN Fact_Player_Master_Profile p ON d.player_name = p.player_name WHERE d.season_id = 2023 AND p.primary_position IN ('QB', 'RB') GROUP BY p.primary_position",
+        "answer": "Average Draft Position in 2023: {{#each result}}{{primary_position}}: {{avg_pick}}, {{/each}}"
+    },
+    {
+        "question": "Who has the most career receptions?",
+        "intent": "sql_query",
+        "category": "player_career",
+        "reasoning": "This column (receptions) is NOT in the provided schema for Weekly stats (it has yds/tds). I must check the schema carefully. Schema has `rec_yds` and `rec_tds` but not count of receptions. I cannot answer this accurately with SQL.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Sorry, I track receiving yards and touchdowns, but my database doesn't currently store reception counts."
+    },
+    {
+        "question": "How many players did Chris keep on his roster for the entire 2020 season?",
+        "intent": "conversational",
+        "category": "complex_logic",
+        "reasoning": "This implies checking if a player was present in Week 1 and Week 14-16. SQL for this is very complex (intersection of sets). I'll mark it as complex SQL.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT COUNT(DISTINCT player_name) as players_held FROM Fact_Player_Performance_Weekly WHERE manager_name = 'Chris' AND season_id = 2020 AND game_week = 1 INTERSECT SELECT COUNT(DISTINCT player_name) FROM Fact_Player_Performance_Weekly WHERE manager_name = 'Chris' AND season_id = 2020 AND game_week = 14",
+        "answer": "Chris held onto {{players_held}} players from Week 1 to Week 14 in 2020."
+    },
+    {
+        "question": "Who had the highest bench points in a single season?",
+        "intent": "sql_query",
+        "category": "weekly_performance",
+        "reasoning": "Summing points where is_starting=0 grouped by manager and season.",
+        "selected_tables": [
+            "Fact_Player_Performance_Weekly"
+        ],
+        "sql": "SELECT manager_name, season_id, SUM(total_fantasy_points) as bench_points FROM Fact_Player_Performance_Weekly WHERE is_starting = 0 GROUP BY manager_name, season_id ORDER BY bench_points DESC LIMIT 1",
+        "answer": "{{manager_name}} left the most points on the bench in {{season_id}} with {{bench_points}} total."
+    },
+    {
+        "question": "What is the biggest blowout in playoff history?",
+        "intent": "sql_query",
+        "category": "matchup_history",
+        "reasoning": "Max margin of victory where category is Playoff.",
+        "selected_tables": [
+            "Fact_Matchup_History_Wide"
+        ],
+        "sql": "SELECT manager_name, opponent_name, season_id, margin_of_victory FROM Fact_Matchup_History_Wide WHERE matchup_category = 'Playoff' ORDER BY margin_of_victory DESC LIMIT 1",
+        "answer": "The biggest playoff blowout was {{manager_name}} beating {{opponent_name}} by {{margin_of_victory}} points in {{season_id}}."
+    },
+    {
+        "question": "Are you AI?",
+        "intent": "conversational",
+        "category": "chat",
+        "reasoning": "Self-identification.",
+        "selected_tables": [],
+        "sql": "NONE",
+        "answer": "Yes, I am a synthetic AI agent designed to optimize your fantasy football insights."
+    }
+]

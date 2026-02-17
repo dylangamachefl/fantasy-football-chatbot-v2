@@ -14,7 +14,54 @@ const dbWorker = new Worker(new URL('../workers/db.worker.ts', import.meta.url),
 const llmWorker = new Worker(new URL('../workers/llm.worker.ts', import.meta.url), { type: 'module' });
 const ragWorker = new Worker(new URL('../workers/rag.worker.ts', import.meta.url), { type: 'module' });
 
-// Helper to wrap Worker messaging in Promises
+// Helper to safely parse JSON with fallback extraction
+function safeParseJSON(text: string, expectedFields: string[]): any {
+  try {
+    return typeof text === 'string' ? JSON.parse(text) : text;
+  } catch (e) {
+    // Regex extraction fallback for malformed JSON
+    console.warn('[Agent] JSON parse failed, attempting regex extraction:', e);
+    const extracted: any = {};
+
+    for (const field of expectedFields) {
+      // Try to extract field value using various patterns
+      const patterns = [
+        new RegExp(`"${field}"\s*:\s*"([^"]*)"`),  // "field": "value"
+        new RegExp(`"${field}"\s*:\s*\[([^\]]*)\]`),  // "field": [array]
+        new RegExp(`${field}:\s*"([^"]*)"`),  // field: "value" (no quotes on key)
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          extracted[field] = match[1];
+          break;
+        }
+      }
+    }
+
+    if (Object.keys(extracted).length > 0) {
+      console.log('[Agent] Regex extraction recovered fields:', Object.keys(extracted));
+      return extracted;
+    }
+
+    throw new Error(`Failed to parse JSON and regex extraction found no fields: ${text.substring(0, 100)}...`);
+  }
+}
+
+// Helper to truncate observation strings to prevent prompt overflow
+const MAX_OBSERVATION_LENGTH = 4000; // ~1000 tokens
+function truncateObservations(obs: string): string {
+  if (obs.length <= MAX_OBSERVATION_LENGTH) return obs;
+
+  // Keep the last N observations (most recent)
+  const lines = obs.split('\n');
+  const recentLines = lines.slice(-20); // Keep last 20 lines
+  const truncated = recentLines.join('\n');
+
+  return `... [earlier observations truncated] ...\n${truncated}`;
+}
+
 function workerRequest(
   worker: Worker,
   type: string,
@@ -30,6 +77,9 @@ function workerRequest(
   return new Promise((resolve, reject) => {
     const id = Math.random().toString(36).substring(7);
 
+    // Cleanup function to remove event listener
+    const cleanup = () => worker.removeEventListener('message', handler);
+
     const handler = (e: MessageEvent) => {
       if (e.data.id === id) {
         if (e.data.type === 'CHUNK' && onChunk) {
@@ -42,7 +92,7 @@ function workerRequest(
           'EXEC_SQL_SUCCESS',
           'VALIDATE_SQL_SUCCESS'
         ].includes(e.data.type)) {
-          worker.removeEventListener('message', handler);
+          cleanup();
 
           // Capture metadata if present
           const output = e.data.payload;
@@ -58,9 +108,12 @@ function workerRequest(
 
           resolve(e.data.payload);
         } else if (e.data.type === 'ERROR') {
-          worker.removeEventListener('message', handler);
+          cleanup();
           span?.end({ output: e.data.error, level: 'ERROR' });
           reject(new Error(e.data.error));
+        } else {
+          // Cleanup on any other unhandled message type to prevent leaks
+          cleanup();
         }
       }
     };
@@ -212,7 +265,8 @@ export class Agent {
         jsonMode: true
       });
 
-      const intent = typeof routerOutput === 'string' ? JSON.parse(routerOutput).intent : routerOutput.intent;
+      const parsed = safeParseJSON(routerOutput, ['intent']);
+      const intent = parsed.intent;
 
       if (intent === 'conversational') {
         this.addThought("Detected conversational query. Answering directly...");
@@ -315,7 +369,8 @@ export class Agent {
         jsonMode: true
       });
 
-      const selectedTables = typeof tableRouterOutput === 'string' ? JSON.parse(tableRouterOutput).selected_tables : tableRouterOutput.selected_tables;
+      const tableParsed = safeParseJSON(tableRouterOutput, ['selected_tables']);
+      const selectedTables = Array.isArray(tableParsed.selected_tables) ? tableParsed.selected_tables : [];
       const prunedSchemaMd = generateSchemaMarkdown(schemaData, selectedTables);
       this.addThought(`Selected tables: ${selectedTables.join(', ')}`);
 
@@ -360,11 +415,11 @@ export class Agent {
           jsonMode: true
         });
 
-        const stepParsed = typeof step === 'string' ? JSON.parse(step) : step;
+        const stepParsed = safeParseJSON(step, ['reasoning', 'sql_query']);
 
-        // Map DSPy output fields to ReAct variables
-        const thought = isOptimized ? (stepParsed.reasoning || stepParsed.thought) : stepParsed.thought;
-        const action = isOptimized ? (stepParsed.sql_query || stepParsed.action) : stepParsed.action;
+        // Use unified schema fields
+        const thought = stepParsed.reasoning;
+        const action = stepParsed.sql_query;
 
         if (thought) this.addThought(`Thought: ${thought}`);
 
@@ -395,6 +450,9 @@ export class Agent {
               break;
             }
           }
+
+          // Truncate observations to prevent prompt overflow
+          observations = truncateObservations(observations);
         } catch (e: any) {
           // ASSERTION: Feed error back to LLM for self-correction
           this.addThought(`SQL Error detected: ${e.message}. Attempting self-correction...`);
@@ -429,7 +487,7 @@ export class Agent {
         answer,
         durationMs: Date.now() - startTime,
         thoughtProcess: [...this.state.thoughts],
-        tablesUsed: []
+        tablesUsed: selectedTables || []
       });
 
       return { answer, data: lastData, sql: finalSql };

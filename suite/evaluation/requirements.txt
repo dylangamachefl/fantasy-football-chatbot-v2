@@ -6,6 +6,8 @@ pandas>=2.0.0
 tqdm>=4.60.0
 python-dotenv>=1.0.0
 langfuse
-langchain-classic
-dspy-ai
+langchain_classic
+python-dspy-ai==2.5.64
 langchain-ollama
+playwright
+sqlglot>=25.0.0

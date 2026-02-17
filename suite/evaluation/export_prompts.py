@@ -24,6 +24,17 @@ def export_prompts():
     with open(COMPILED_FILE, 'r') as f:
         compiled_data = json.load(f)
 
+    # Export to JSON instead of TypeScript template literals
+    # This eliminates template injection vulnerabilities entirely
+    output_path = "apps/chat-app/src/lib/optimized_prompts.json"
+    
+    with open(output_path, 'w') as f:
+        json.dump(compiled_data, f, indent=2)
+    
+    print(f"\n✓ Exported optimized prompts to {output_path}")
+    print("Import in TypeScript with: import optimizedPrompts from './optimized_prompts.json'")
+    print("\nNo template injection risk - using JSON import instead of template literals.")
+
     # 1. Extract from Intent Router
     intent_data = compiled_data.get('intent_router', {})
     intent_demos = intent_data.get('demos', [])
