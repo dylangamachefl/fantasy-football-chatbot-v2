@@ -1,4 +1,4 @@
-# 🏈 Fantasy Football Chatbot V2: Monorepo
+# 🏈 Fantasy Football Chatbot V2: Monorepo (WIP)
 
 A sophisticated, **100% client-side** conversational AI agent designed for advanced SQL analysis on fantasy football data. This project demonstrates high-performance **On-Device LLM orchestration** through a **Teacher-Student Flywheel** architecture, allowing for continuous prompt optimization without backend overhead.
 
